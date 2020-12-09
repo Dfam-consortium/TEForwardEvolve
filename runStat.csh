@@ -1,5 +1,4 @@
 #!/bin/csh
-./generateTablesAndGraphs.pl run2/DNATransTree-1-Tigger1-R3S-evalblk
 #./generateTablesAndGraphs.pl run2/DNATransTree-1-Charlie1-R3S-eval
 #./generateTablesAndGraphs.pl run2/DNATransTree-2-Charlie1-K80-eval
 #./generateTablesAndGraphs.pl run2/DNATransTree-2-Charlie1-R3S-eval

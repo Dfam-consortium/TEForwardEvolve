@@ -1,163 +1,46 @@
 #!/bin/csh
 
-#/usr/local/nextflow/nextflow -log /local/MSA/my.log run -w /local/MSA/work ./evalMultipleAlign.nf \
-#  --refiner \
-#  --muscle \
-#  --mafft \
-#  --clustalw2 \
-#  --seed seeds/Tigger1.fa \
-#  --benchmarkDir run2/DNATransTree-1-Tigger1-K80 \
-#  --outputDir run2/DNATransTree-1-Tigger1-K80-eval
-#
-#/usr/local/nextflow/nextflow run ./evalMultipleAlign.nf \
-#  --refiner \
-#  --muscle \
-#  --mafft \
-#  --clustalw2 \
-#  --seed seeds/Charlie1.fa \
-#  --benchmarkDir run2/DNATransTree-1-Charlie1-K80 \
-#  --outputDir run2/DNATransTree-1-Charlie1-K80-eval
-#
-#/usr/local/nextflow/nextflow run ./evalMultipleAlign.nf \
-#  --refiner \
-#  --muscle \
-#  --mafft \
-#  --clustalw2 \
-#  --seed seeds/Tigger1.fa \
-#  --benchmarkDir run2/DNATransTree-2-Tigger1-K80 \
-#  --outputDir run2/DNATransTree-2-Tigger1-K80-eval
-#
-#/usr/local/nextflow/nextflow run ./evalMultipleAlign.nf \
-#  --refiner \
-#  --muscle \
-#  --mafft \
-#  --clustalw2 \
-#  --seed seeds/Charlie1.fa \
-#  --benchmarkDir run2/DNATransTree-2-Charlie1-K80 \
-#  --outputDir run2/DNATransTree-2-Charlie1-K80-eval
-#
-#/usr/local/nextflow/nextflow run ./evalMultipleAlign.nf \
-#  --refiner \
-#  --muscle \
-#  --mafft \
-#  --clustalw2 \
-#  --seed seeds/Tigger1.fa \
-#  --benchmarkDir run2/DNATransTree-1-Tigger1-R3S \
-#  --outputDir run2/DNATransTree-1-Tigger1-R3S-eval
+set PROJDIR="paper-data"
 
-#/usr/local/nextflow/nextflow run ./evalMultipleAlign.nf \
-#  --refiner \
-#  --muscle \
-#  --mafft \
-#  --clustalw2 \
-#  --seed seeds/Tigger1.fa \
-#  --benchmarkDir run2/DNATransTree-1-Tigger1-R3S \
-#  --outputDir run2/DNATransTree-1-Tigger1-R3S-evalblk
-
-/usr/local/nextflow/nextflow run ./evalMultipleAlign.nf \
-  --dialign \
-  --kalign \
-  --seed seeds/Tigger1.fa \
-  --benchmarkDir run2/DNATransTree-1-Tigger1-R3S \
-  --outputDir run2/DNATransTree-1-Tigger1-R3S-added
+# Important to keep the work directories on a local disk.
+# On Dfam-Dev:
+set NEXTFLOW_OPTS="-log /local/MSA/my.log"
+set NEXTFLOW_RUN_OPTS="-w /local/MSA/work"
 
 #
-#/usr/local/nextflow/nextflow -log /local/MSA/my.log run -w /local/MSA/work ./evalMultipleAlign.nf \
-#  --refiner \
-#  --muscle \
-#  --mafft \
-#  --clustalw2 \
-#  --seed seeds/Tigger1.fa \
-#  --benchmarkDir run2/DNATransTree-2-Tigger1-R3S \
-#  --outputDir run2/DNATransTree-2-Tigger1-R3S-eval
-#
-#/usr/local/nextflow/nextflow -log /local/MSA/my.log run -w /local/MSA/work ./evalMultipleAlign.nf \
-#  --refiner \
-#  --muscle \
-#  --mafft \
-#  --clustalw2 \
-#  --seed seeds/Charlie1.fa \
-#  --benchmarkDir run2/DNATransTree-1-Charlie1-R3S \
-#  --outputDir run2/DNATransTree-1-Charlie1-R3S-eval
-#
-#/usr/local/nextflow/nextflow -log /local/MSA/my.log run -w /local/MSA/work ./evalMultipleAlign.nf \
-#  --refiner \
-#  --muscle \
-#  --mafft \
-#  --clustalw2 \
-#  --seed seeds/Charlie1.fa \
-#  --benchmarkDir run2/DNATransTree-2-Charlie1-R3S \
-#  --outputDir run2/DNATransTree-2-Charlie1-R3S-eval
-#
-#/usr/local/nextflow/nextflow -log /local/MSA/my.log run -w /local/MSA/work ./evalMultipleAlign.nf \
-#  --refiner \
-#  --muscle \
-#  --mafft \
-#  --clustalw2 \
-#  --seed seeds/L2.fa \
-#  --benchmarkDir run2/LINETree-1-L2-K80 \
-#  --outputDir run2/LINETree-1-L2-K80-eval
-#
-#/usr/local/nextflow/nextflow -log /local/MSA/my.log run -w /local/MSA/work ./evalMultipleAlign.nf \
-#  --refiner \
-#  --muscle \
-#  --mafft \
-#  --clustalw2 \
-#  --seed seeds/L2.fa \
-#  --benchmarkDir run2/LINETree-1-L2-R3S \
-#  --outputDir run2/LINETree-1-L2-R3S-eval
-#
-#/usr/local/nextflow/nextflow -log /local/MSA/my.log run -w /local/MSA/work ./evalMultipleAlign.nf \
-#  --refiner \
-#  --muscle \
-#  --mafft \
-#  --clustalw2 \
-#  --seed seeds/L2.fa \
-#  --benchmarkDir run2/LINETree-2-L2-K80 \
-#  --outputDir run2/LINETree-2-L2-K80-eval
-#
-#/usr/local/nextflow/nextflow -log /local/MSA/my.log run -w /local/MSA/work ./evalMultipleAlign.nf \
-#  --refiner \
-#  --muscle \
-#  --mafft \
-#  --clustalw2 \
-#  --seed seeds/L2.fa \
-#  --benchmarkDir run2/LINETree-2-L2-R3S \
-#  --outputDir run2/LINETree-2-L2-R3S-eval
+set EVAL_OPTS="--refiner --muscle --mafft --clustalw2 --dialign --kalign"
 
-#/usr/local/nextflow/nextflow -log /local/MSA/my.log run -w /local/MSA/work ./evalMultipleAlign.nf \
-#  --refiner \
-#  --muscle \
-#  --mafft \
-#  --clustalw2 \
-#  --seed seeds/CR1.fa \
-#  --benchmarkDir run2/LINETree-1-CR1-K80 \
-#  --outputDir run2/LINETree-1-CR1-K80-eval
 
-#/usr/local/nextflow/nextflow -log /local/MSA/my.log run -w /local/MSA/work ./evalMultipleAlign.nf \
-#  --refiner \
-#  --muscle \
-#  --mafft \
-#  --clustalw2 \
-#  --seed seeds/CR1.fa \
-#  --benchmarkDir run2/LINETree-1-CR1-R3S \
-#  --outputDir run2/LINETree-1-CR1-R3S-eval
+foreach SIM ( DNATransTree-1-Tigger1-K80  DNATransTree-1-Tigger1-R3S \
+              DNATransTree-2-Tigger1-K80  DNATransTree-2-Tigger1-R3S )
+  /usr/local/nextflow/nextflow ${NEXTFLOW_OPTS} run ${NEXTFLOW_RUN_OPTS} ./evalMultipleAlign.nf \
+                               ${EVAL_OPTS} --seed seeds/Tigger1.fa \
+                               --benchmarkDir ${PROJDIR}/${SIM} \
+                               --outputDir ${PROJDIR}/${SIM}-eval
+end
 
-#/usr/local/nextflow/nextflow -log /local/MSA/my.log run -w /local/MSA/work ./evalMultipleAlign.nf \
-#  --refiner \
-#  --muscle \
-#  --mafft \
-#  --clustalw2 \
-#  --seed seeds/CR1.fa \
-#  --benchmarkDir run2/LINETree-2-CR1-K80 \
-#  --outputDir run2/LINETree-2-CR1-K80-eval
+foreach SIM ( DNATransTree-2-Charlie1-K80 DNATransTree-2-Charlie1-R3S \
+              DNATransTree-1-Charlie1-K80 DNATransTree-1-Charlie1-R3S )
+  /usr/local/nextflow/nextflow ${NEXTFLOW_OPTS} run ${NEXTFLOW_RUN_OPTS} ./evalMultipleAlign.nf \
+                               ${EVAL_OPTS} --seed seeds/Charlie1.fa \
+                               --benchmarkDir ${PROJDIR}/${SIM} \
+                               --outputDir ${PROJDIR}/${SIM}-eval
+end
 
-#/usr/local/nextflow/nextflow -log /local/MSA/my.log run -w /local/MSA/work ./evalMultipleAlign.nf \
-#  --refiner \
-#  --muscle \
-#  --mafft \
-#  --clustalw2 \
-#  --seed seeds/CR1.fa \
-#  --benchmarkDir run2/LINETree-2-CR1-R3S \
-#  --outputDir run2/LINETree-2-CR1-R3S-eval
+foreach SIM ( LINETree-1-L1-K80  LINETree-1-L1-R3S \
+              LINETree-2-L1-K80  LINETree-2-L1-R3S )
+  /usr/local/nextflow/nextflow ${NEXTFLOW_OPTS} run ${NEXTFLOW_RUN_OPTS} ./evalMultipleAlign.nf \
+                               ${EVAL_OPTS} --seed seeds/L1.fa \
+                               --benchmarkDir ${PROJDIR}/${SIM} \
+                               --outputDir ${PROJDIR}/${SIM}-eval
+end
+
+foreach SIM ( LINETree-1-CR1-K80 LINETree-1-CR1-R3S \
+              LINETree-2-CR1-K80 LINETree-2-CR1-R3S )
+  /usr/local/nextflow/nextflow ${NEXTFLOW_OPTS} run ${NEXTFLOW_RUN_OPTS} ./evalMultipleAlign.nf \
+                               ${EVAL_OPTS} --seed seeds/CR1.fa \
+                               --benchmarkDir ${PROJDIR}/${SIM} \
+                               --outputDir ${PROJDIR}/${SIM}-eval
+
+end
 
