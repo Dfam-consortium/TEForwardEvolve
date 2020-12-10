@@ -48,6 +48,7 @@ my $evalDir = $ARGV[0];
 # gput100-train-muscle.trimmed-cons.vs_refmsacons
 #
 #
+if ( 1 ) {
 if ( ! -d "$evalDir/html" ) {
   mkdir("$evalDir/html");
 }
@@ -80,6 +81,7 @@ while ( my $entry = readdir(INDIR) ){
   } 
 }
 closedir(INDIR);
+}
  
 opendir INDIR,"$evalDir" or die;
 my %data = ();
@@ -215,7 +217,7 @@ foreach my $characteristic ( 'AMA_similarity_score', 'AMA_predictive_value',
   my $headerFlag = 1;
   foreach my $gput ( sort {$a <=> $b} keys(%stats) ) {
     my @row = ( $gput );
-    foreach my $method ( 'refiner-padded', 'muscle', 'refiner', 'mafft', 'clustalw2' ) {
+    foreach my $method ( 'refiner-padded', 'muscle', 'refiner', 'mafft', 'clustalw2', 'dialign', 'kalign' ) {
       next if ( ($method eq "refiner") && $characteristic !~ /(hmm\.|cons\.|vs_refmsacons)/ );
       next if ( $method eq "refiner-padded" && $characteristic eq "vs_refmsacons" );
       foreach my $stat ( 'mean', 'low_stdev', 'high_stdev' ) {
@@ -271,7 +273,7 @@ foreach my $replicate ( sort {$a <=> $b} keys(%data) ) {
     my $headerFlag = 1;
     foreach my $gput ( sort {$a <=> $b} keys(%stats) ) {
       my @row = ( $gput );
-      foreach my $method ( 'refiner-padded', 'muscle', 'refiner', 'mafft', 'clustalw2' ) {
+      foreach my $method ( 'refiner-padded', 'muscle', 'refiner', 'mafft', 'clustalw2', 'dialign', 'kalign' ) {
         next if ( ($method eq "refiner") && $characteristic !~ /(hmm\.|cons\.|vs_refmsacons)/ );
         next if ( $method eq "refiner-padded" && $characteristic eq "vs_refmsacons" );
         if ( $headerFlag ) {
