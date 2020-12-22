@@ -11,8 +11,9 @@ evalMultipleAlignment.nf : Evaluate multiple alignment programs on sequence sets
      --seed <file>        : File containing the seed for the simulation
      --muscle             : Run Muscle [optional]
      --refiner            : Run Refiner [optional]
-     --dialign            : Run Dialign [optional]
+     --dialign            : Run DialignTX [optional]
      --kalign             : Run Kalign [optional]
+     --fsa                : Run FSA [optional]
      --clustalw2          : Run ClustalW2 [optional]
      --mafft              : Run Mafft [optiona]
      --cluster            : Either "local", "quanah", "hrothgar" or "griz" 
@@ -32,6 +33,9 @@ evalMultipleAlignment.nf : Evaluate multiple alignment programs on sequence sets
     # Changes ":" to "_"
   
   Clustal Omega:
+
+  FSA:
+
 
     
 Test=gput2750-train-clustalw2.fa;Ref=gput2750-train-refmsa.fa;Q=0.0307;TC=0.00585
@@ -64,6 +68,7 @@ params.muscle = false
 params.refiner = false
 params.clustalw2 = false
 params.mafft = false
+params.fsa = false
 params.dialign = false
 params.kalign = false
 params.benchmarkDir = "${workflow.projectDir}/sample"
@@ -76,6 +81,7 @@ runMafft = params.mafft
 runClustalW2 = params.clustalw2
 runDialign = params.dialign
 runKalign = params.kalign
+runFSA = params.fsa
 runFastSP = false
 runQScore = true
 outputDir = params.outputDir
@@ -85,9 +91,11 @@ qscoreDir = "/home/rhubley/projects/DNAMultipleAlignment/qscore"
 phrapDir = "/usr/local/phrap"
 hmmerDir = "/usr/local/hmmer/bin"
 mafftDir = "/usr/local/mafft/bin"
-dialignDir = "/usr/local/dialign-2.2.1"
+//dialignDir = "/usr/local/dialign-2.2.1"
+dialignDir = "/usr/local/dialign-tx-1.0.2"
 kalignDir = "/usr/local/kalign2"
 clustalW2Dir = "/usr/local/bin"
+fsaDir = "/usr/local/fsa/bin"
 dartDir = "/home/rhubley/projects/DNAMultipleAlignment/dart/bin"
 muscleDir = "/usr/local/bin"
 repeatmodelerDir = "/home/rhubley/projects/RepeatModeler"
@@ -98,7 +106,7 @@ fastSPDir = "/home/rhubley/projects/DNAMultipleAlignment/FastSP"
 
 //
 // E.g "gput100-", "gput100-train-seqs.fa", "gput100-train-refmsa.fa", "gput100-test-seqs.fa"
-Channel.fromFilePairs( params.benchmarkDir + "/*/gput*-{train-seqs,train-refmsa,test-seqs}.fa", size: 3, flat:true )
+Channel.fromFilePairs( params.benchmarkDir + "/*/*-{train-seqs,train-refmsa,test-seqs}.fa", size: 3, flat:true )
        .into { benchmarkFilesForComp }
 
 //       .into { benchmarkFilesForComp; benchmarkFilesForMafft; benchmarkFilesForRefiner; benchmarkFilesForMuscle; benchmarkFilesForClustalW2 }
@@ -181,6 +189,7 @@ process processRefMSA {
   tuple file("*cons.fa"), file(testSeqFile), file(referenceMSAFile), file(referenceSeqFile) into benchmarkFilesForRefiner
   tuple file("*cons.fa"), file(testSeqFile), file(referenceMSAFile), file(referenceSeqFile) into benchmarkFilesForKalign
   tuple file("*cons.fa"), file(testSeqFile), file(referenceMSAFile), file(referenceSeqFile) into benchmarkFilesForDialign
+  tuple file("*cons.fa"), file(testSeqFile), file(referenceMSAFile), file(referenceSeqFile) into benchmarkFilesForFSA
   file "*cons.fa"
   file "*cons.vs_self"
   file "*cons.vs_seed"
@@ -189,7 +198,7 @@ process processRefMSA {
 
   script:
   // Identify the prefix "gput100-train" from the filename for use in the script
-  simPrefix = (referenceMSAFile.name =~ /(gput\d+-train)/)[0][0]
+  simPrefix = (referenceMSAFile.name =~ /^(.*-train)/)[0][0]
   // Identify the "rep-#" directory from the path to the referenceMSAFile for output
   repDir = referenceMSAFile.toRealPath().getName(referenceMSAFile.toRealPath().getNameCount() - 2)
   """
@@ -206,6 +215,64 @@ process processRefMSA {
   """
 }
 
+
+process runFSA {
+  publishDir "${outputDir}", mode: 'copy', saveAs: { filename -> "$repDir/$filename" }
+
+  input:
+  set file(referenceMSACons), file(testSeqFile), file(referenceMSAFile), file(referenceSeqFile) from benchmarkFilesForFSA
+
+  when:
+  runFSA
+
+  output:
+  tuple file("*fsa.fa"), file(testSeqFile), file(referenceMSAFile), file(referenceSeqFile) into fsaToAMAChan
+  tuple file("*fsa.fa"), file(testSeqFile), file(referenceMSAFile), file(referenceSeqFile) into fsaToQScoreChan
+  tuple file("*cons.fa"), file(testSeqFile) into fsaToCrossmatchChan mode flatten
+  tuple file("*cons.fa"), file(testSeqFile) into fsaToNhmmerCONSChan mode flatten
+  tuple file("*.hmm"), file(testSeqFile) into fsaToNhmmerHMMChan mode flatten
+  file "*-fsa.fa"
+  file "*-fsa.hmm"
+  file "*-fsa.cons.fa"
+  file "*-fsa.trimmed-cons.fa"
+  file "*-fsa.trimmed.hmm"
+  file "*-fsa.cons.vs_refmsacons"
+  file "*-fsa.trimmed-cons.vs_refmsacons"
+
+  script:
+  // Identify the prefix "gput100-train" from the filename for use in the script
+  simPrefix = (referenceMSAFile.name =~ /^(.*-train)/)[0][0]
+  // Identify the "rep-#" directory from the path to the referenceMSAFile for output
+  repDir = referenceMSAFile.toRealPath().getName(referenceMSAFile.toRealPath().getNameCount() - 2)
+  """
+  #### Run FSA
+  ${fsaDir}/fsa ${referenceSeqFile} > ${simPrefix}-fsa.fa
+
+  #### Sanity Check MSA
+  # Since this is a full sequence MSA the validate the sequences against the reference MSA as a sanity check
+  ${workflow.projectDir}/validateEstimatedMSA.pl ${referenceMSAFile} ${simPrefix}-fsa.fa
+
+  #### Generate Consensus Model
+  # Generate two consensus files from the multiple alignment.  One which includes single sequence alignment edges, and a trimmed version
+  # which trims back until there is at least one column containing two or more sequences.
+  ${repeatmodelerDir}/util/Linup -consensus -name ${referenceMSAFile.baseName} ${simPrefix}-fsa.fa > ${simPrefix}-fsa.cons.fa
+  ${workflow.projectDir}/trimUnalignedEdges.pl ${simPrefix}-fsa.fa > trimmed-msa.fa
+  ${repeatmodelerDir}/util/Linup -consensus -name ${referenceMSAFile.baseName} trimmed-msa.fa > ${simPrefix}-fsa.trimmed-cons.fa
+
+  #### Consensus VS Consensus
+  # Compare consensi to evalute how well each can rebuild the ref msa consensus
+  #   E.g. compareConsensiNeedle.pl gput100-train-fsa.cons.fa L2.fa > gput100-train-fsa.cons.vs_refmsacons
+  #        compareConsensiNeedle.pl gput100-train-fsa.trimmed-cons.fa L2.fa > gput100-train-fsa.trimmed-cons.vs_refmsacons
+  ${workflow.projectDir}/compareConsensiNeedle.pl ${simPrefix}-fsa.cons.fa ${referenceMSACons} > ${simPrefix}-fsa.cons.vs_refmsacons 
+  ${workflow.projectDir}/compareConsensiNeedle.pl ${simPrefix}-fsa.trimmed-cons.fa ${referenceMSACons} > ${simPrefix}-fsa.trimmed-cons.vs_refmsacons
+
+  #### Generate HMM Model
+  ${repeatmodelerDir}/util/Linup -noTemplate -name predicted -stockholm trimmed-msa.fa > trimmed.stk
+  ${hmmerDir}/hmmbuild ${simPrefix}-fsa.trimmed.hmm trimmed.stk > trimmed-hmmbuild.log
+  ${repeatmodelerDir}/util/Linup -noTemplate -name predicted -stockholm ${simPrefix}-fsa.fa > normal.stk
+  ${hmmerDir}/hmmbuild ${simPrefix}-fsa.hmm normal.stk > hmmbuild.log
+  """
+}
 
 //  KAlign: https://msa.sbc.su.se/cgi-bin/msa.cgi
 //    parameters suggested by website for DNA
@@ -234,7 +301,7 @@ process runKalign {
 
   script:
   // Identify the prefix "gput100-train" from the filename for use in the script
-  simPrefix = (referenceMSAFile.name =~ /(gput\d+-train)/)[0][0]
+  simPrefix = (referenceMSAFile.name =~ /^(.*-train)/)[0][0]
   // Identify the "rep-#" directory from the path to the referenceMSAFile for output
   repDir = referenceMSAFile.toRealPath().getName(referenceMSAFile.toRealPath().getNameCount() - 2)
   """
@@ -268,6 +335,7 @@ process runKalign {
 }
 
 //  DIALIGN: http://dialign.gobics.de/
+// Switched to dialigntx because it does appear to perform better
 process runDialign {
   publishDir "${outputDir}", mode: 'copy', saveAs: { filename -> "$repDir/$filename" }
 
@@ -293,13 +361,16 @@ process runDialign {
 
   script:
   // Identify the prefix "gput100-train" from the filename for use in the script
-  simPrefix = (referenceMSAFile.name =~ /(gput\d+-train)/)[0][0]
+  simPrefix = (referenceMSAFile.name =~ /^(.*-train)/)[0][0]
   // Identify the "rep-#" directory from the path to the referenceMSAFile for output
   repDir = referenceMSAFile.toRealPath().getName(referenceMSAFile.toRealPath().getNameCount() - 2)
   """
   #### Run Dialign
-  export DIALIGN2_DIR=${dialignDir}/dialign2_dir
-  ${dialignDir}/dialign2-2 -n -fa -fn ${simPrefix}-dialign ${referenceSeqFile} 
+  #export DIALIGN2_DIR=${dialignDir}/dialign2_dir
+  #${dialignDir}/dialign2-2 -n -fa -fn ${simPrefix}-dialign ${referenceSeqFile} 
+  #### Run Dialigntx
+  ${dialignDir}/dialign-tx -D ${dialignDir}/conf ${referenceSeqFile} ${simPrefix}-dialign.fa
+
 
   #### Sanity Check MSA
   # Since this is a full sequence MSA the validate the sequences against the reference MSA as a sanity check
@@ -352,7 +423,7 @@ process runClustalW2 {
 
   script:
   // Identify the prefix "gput100-train" from the filename for use in the script
-  simPrefix = (referenceMSAFile.name =~ /(gput\d+-train)/)[0][0]
+  simPrefix = (referenceMSAFile.name =~ /^(.*-train)/)[0][0]
   // Identify the "rep-#" directory from the path to the referenceMSAFile for output
   repDir = referenceMSAFile.toRealPath().getName(referenceMSAFile.toRealPath().getNameCount() - 2)
   """
@@ -413,7 +484,7 @@ process runMafft {
 
   script:
   // Identify the prefix "gput100-train" from the filename for use in the script
-  simPrefix = (referenceMSAFile.name =~ /(gput\d+-train)/)[0][0]
+  simPrefix = (referenceMSAFile.name =~ /^(.*-train)/)[0][0]
   // Identify the "rep-#" directory from the path to the referenceMSAFile for output
   repDir = referenceMSAFile.toRealPath().getName(referenceMSAFile.toRealPath().getNameCount() - 2)
   """
@@ -476,7 +547,7 @@ process runMuscle {
 
   script:
   // Identify the prefix "gput100-train" from the filename for use in the script
-  simPrefix = (referenceMSAFile.name =~ /(gput\d+-train)/)[0][0]
+  simPrefix = (referenceMSAFile.name =~ /^(.*-train)/)[0][0]
   // Identify the "rep-#" directory from the path to the referenceMSAFile for output
   repDir = referenceMSAFile.toRealPath().getName(referenceMSAFile.toRealPath().getNameCount() - 2)
   """
@@ -521,20 +592,20 @@ process runRefiner {
   tuple file("*refiner-padded.fa"), file(testSeqFile), file(referenceMSAFile), file(referenceSeqFile) into refinerToQScoreChan
   tuple file("*cons.fa"), file(testSeqFile) into refinerToCrossmatchChan mode flatten
   tuple file("*cons.fa"), file(testSeqFile) into refinerToNhmmerCONSChan mode flatten
-  tuple file("*.hmm"), file(testSeqFile) into refinerToNhmmerHMMChan mode flatten
+  tuple file("*.hmm"), file(testSeqFile) optional true into refinerToNhmmerHMMChan mode flatten
   file "*refiner.log"
   file "*-refiner.stk"
   file "*-refiner.fa"
-  file "*-refiner.hmm"
+  file "*-refiner.hmm" optional true
   file "*-refiner.cons.fa"
   file "*-refiner.cons.vs_refmsacons"
-  file "*-refiner-padded.hmm"
+  file "*-refiner-padded.hmm" optional true
   file "*-refiner-padded.cons.fa"
   file "*-refiner-padded.cons.vs_refmsacons"
 
   script:
   // Identify the prefix "gput100-train" from the filename for use in the script
-  simPrefix = (referenceMSAFile.name =~ /(gput\d+-train)/)[0][0]
+  simPrefix = (referenceMSAFile.name =~ /^(.*-train)/)[0][0]
   // Identify the "rep-#" directory from the path to the referenceMSAFile for output
   repDir = referenceMSAFile.toRealPath().getName(referenceMSAFile.toRealPath().getNameCount() - 2)
   """
@@ -573,8 +644,18 @@ process runRefiner {
  
   #### Generate HMM Model
   ${repeatmodelerDir}/util/Linup -noTemplate -name predicted -stockholm ${simPrefix}-refiner-padded.fa > padded.stk
-  ${hmmerDir}/hmmbuild ${simPrefix}-refiner-padded.hmm padded.stk > padded-hmmbuild.log
-  ${hmmerDir}/hmmbuild ${simPrefix}-refiner.hmm ${simPrefix}-refiner.stk > hmmbuild.log
+  if ! ${hmmerDir}/hmmbuild ${simPrefix}-refiner-padded.hmm padded.stk > padded-hmmbuild.log; then
+    echo "No padded hmm"
+    if [ -f ${simPrefix}-refiner-padded.hmm ]; then
+      rm ${simPrefix}-refiner-padded.hmm
+    fi
+  fi
+  if ! ${hmmerDir}/hmmbuild ${simPrefix}-refiner.hmm ${simPrefix}-refiner.stk > hmmbuild.log; then
+    echo "No hmm"
+    if [ -f ${simPrefix}-refiner.hmm ]; then
+      rm ${simPrefix}-refiner.hmm
+    fi
+  fi
   """
 }
 
@@ -582,7 +663,7 @@ process evalAMA {
   publishDir "${outputDir}", mode: 'copy', saveAs: { filename -> "$repDir/$filename" }
 
   input:
-  set file(predictedMSAFile), file(testSeqFile), file(referenceMSAFile), file(referenceSeqFile) from refinerToAMAChan.mix(muscleToAMAChan,mafftToAMAChan,clustalw2ToAMAChan,dialignToAMAChan,kalignToAMAChan)
+  set file(predictedMSAFile), file(testSeqFile), file(referenceMSAFile), file(referenceSeqFile) from refinerToAMAChan.mix(muscleToAMAChan,mafftToAMAChan,clustalw2ToAMAChan,dialignToAMAChan,kalignToAMAChan,fsaToAMAChan)
 
   output:
   file "*.ama_score"
@@ -601,7 +682,7 @@ process evalQScore {
   publishDir "${outputDir}", mode: 'copy', saveAs: { filename -> "$repDir/$filename" }
 
   input:
-  set file(predictedMSAFile), file(testSeqFile), file(referenceMSAFile), file(referenceSeqFile) from refinerToQScoreChan.mix(muscleToQScoreChan,mafftToQScoreChan,clustalw2ToQScoreChan,dialignToQScoreChan,kalignToQScoreChan)
+  set file(predictedMSAFile), file(testSeqFile), file(referenceMSAFile), file(referenceSeqFile) from refinerToQScoreChan.mix(muscleToQScoreChan,mafftToQScoreChan,clustalw2ToQScoreChan,dialignToQScoreChan,kalignToQScoreChan,fsaToQScoreChan)
 
   when:
   runQScore
@@ -622,7 +703,7 @@ process runCrossmatch {
   publishDir "${outputDir}", mode: 'copy', saveAs: { filename -> "$repDir/$filename" }
 
   input:
-  set file(consFile), file(testSeqFile) from refinerToCrossmatchChan.mix(muscleToCrossmatchChan,mafftToCrossmatchChan,clustalw2ToCrossmatchChan,dialignToCrossmatchChan,kalignToCrossmatchChan)
+  set file(consFile), file(testSeqFile) from refinerToCrossmatchChan.mix(muscleToCrossmatchChan,mafftToCrossmatchChan,clustalw2ToCrossmatchChan,dialignToCrossmatchChan,kalignToCrossmatchChan,fsaToCrossmatchChan)
 
   output:
   file "*.cm_score"
@@ -642,7 +723,7 @@ process runNhmmerHMM {
   publishDir "${outputDir}", mode: 'copy', saveAs: { filename -> "$repDir/$filename" }
 
   input:
-  set file(hmmFile), file(testSeqFile) from refinerToNhmmerHMMChan.mix(muscleToNhmmerHMMChan,mafftToNhmmerHMMChan,clustalw2ToNhmmerHMMChan,dialignToNhmmerHMMChan,kalignToNhmmerHMMChan)
+  set file(hmmFile), file(testSeqFile) from refinerToNhmmerHMMChan.mix(muscleToNhmmerHMMChan,mafftToNhmmerHMMChan,clustalw2ToNhmmerHMMChan,dialignToNhmmerHMMChan,kalignToNhmmerHMMChan,fsaToNhmmerHMMChan)
 
   output:
   file "*nhmmer"
@@ -661,7 +742,7 @@ process runNhmmerCONS {
   publishDir "${outputDir}", mode: 'copy', saveAs: { filename -> "$repDir/$filename" }
 
   input:
-  set file(consFile), file(testSeqFile) from refinerToNhmmerCONSChan.mix(muscleToNhmmerCONSChan,mafftToNhmmerCONSChan,clustalw2ToNhmmerCONSChan,dialignToNhmmerCONSChan,kalignToNhmmerCONSChan)
+  set file(consFile), file(testSeqFile) from refinerToNhmmerCONSChan.mix(muscleToNhmmerCONSChan,mafftToNhmmerCONSChan,clustalw2ToNhmmerCONSChan,dialignToNhmmerCONSChan,kalignToNhmmerCONSChan,fsaToNhmmerCONSChan)
 
   output:
   file "*nhmmer"

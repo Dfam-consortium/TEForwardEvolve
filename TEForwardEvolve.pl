@@ -36,7 +36,8 @@ TEForwardEvolve.pl - A DNA sequence evolver with triplet rate matrices and indel
                      [-mean_del_size <bp>][-mean_ins_size <bp>]
                      [-max_del_size <bp>][-max_ins_size <bp>]
                      [-min_frag_len <bp>][-verbosity #]
-                     [-srand #]
+                     [-srand #][-min_full_len #][-fragment_size_stdev #]
+                     [-fragment_size_mean #]
 
 =head1 DESCRIPTION
 
@@ -122,6 +123,10 @@ my @getopt_args = (
     '-max_del_size=s',
     '-mean_ins_size=s',
     '-max_ins_size=s',
+    '-min_frag_len=s',
+    '-min_full_len=s',
+    '-fragment_size_stdev=s',
+    '-fragment_size_mean=s',
     '-verbosity=s'
 );
 
@@ -137,12 +142,16 @@ sub usage {
   exit;
 }
 
+if ( ! $options{'tree'} && ! $options{'seed'} ) {
+  usage();
+}
+
 if ($options{'version'}) {
   print "$Version\n";
   exit;
 }
 
-my $newickFile = "tree.nw";
+my $newickFile;
 if ( exists $options{'tree'} && -s $options{'tree'} ) {
   $newickFile = $options{'tree'};
 }
@@ -188,7 +197,7 @@ breadthFirstSearch($tref, \&fixMissingNodeNames);
 # 
 # Read in the seed sequence
 #
-my $seedFile = "seed.fa";
+my $seedFile;
 if ( exists $options{'seed'} && -s $options{'seed'} ) {
   $seedFile = $options{'seed'};
 }
@@ -367,39 +376,65 @@ foreach my $tri ( keys %{$triMatrix} ) {
 if ( $options{'verbosity'} ) {
   $verbosity = $options{'verbosity'};
 }
+
 my $minFragLen = 100;
 if ( $options{'min_frag_len'} ) {
   $minFragLen = $options{'min_frag_len'};
 }
+
 my $insertion_rate = 0.08;
 if ( $options{'insertion_rate'} ) {
   $insertion_rate = $options{'insertion_rate'};
 }
+
 my $deletion_rate = 0.12;
 if ( $options{'deletion_rate'} ) {
   $deletion_rate = $options{'deletion_rate'};
 }
+
 my $mean_del_size = 1.7;
 if ( $options{'mean_del_size'} ) {
   $mean_del_size = $options{'mean_del_size'};
 }
+
 my $mean_ins_size = 1.7;
 if ( $options{'mean_ins_size'} ) {
   $mean_ins_size = $options{'mean_ins_size'};
 }
+
 my $max_del_size = 20;
 if ( $options{'max_del_size'} ) {
   $max_del_size = $options{'max_del_size'};
 }
+
 my $max_ins_size = 20;
 if ( $options{'max_ins_size'} ) {
   $max_ins_size = $options{'max_ins_size'};
 }
+
 # Used with 100 seq, 100 generation tree
 my $generations_per_unit_time = 5000;
 if ( $options{'generations_per_unit_time'} ) {
   $generations_per_unit_time = $options{'generations_per_unit_time'};
 }
+
+# Use log normal distribution of fragment sizes between min_frag_len > X < seed_length ( default is random function )
+my $fragDist_stdev;
+my $fragDist_mean;
+if ( $options{'fragment_size_stdev'} && $options{'fragment_size_mean'} ) {
+  $fragDist_stdev = $options{'fragment_size_stdev'};
+  $fragDist_mean = $options{'fragment_size_mean'};
+}elsif ( $options{'fragment_size_stdev'} || $options{'fragment_size_mean'} ) {
+  die "ERROR: must supply both 'fragment_size_stdev' and 'fragment_size_mean' and not just one!\n";
+}
+
+# Minimum number of unfragmented extant sequences to generate.
+my $minFullLen;
+if ( $options{'min_full_len'} ) {
+  $minFullLen = $options{'min_full_len'};
+}
+
+
 # Random number generator seed
 my $seed;
 if ( exists $options{'srand'} ) {
@@ -437,6 +472,14 @@ if ( $options{'matrix'} ) {
   }else {
     print " - Theoretical matrix: mutation_CpGx20.txt from the trevover package\n";
   }
+}
+if ( $fragDist_stdev ) {
+  print " - Fragment Sizes: Log Normal Distribution ( mean X = $fragDist_mean, standard deviation X = $fragDist_stdev )\n";
+}else {
+  print " - Fragment sizes: uniformally distributed\n";
+}
+if ( $minFullLen ) {
+  print " - Minimum full-length sequences: $minFullLen\n";
 }
 print "\n\n";
 
@@ -515,20 +558,18 @@ exit;
 ######################## S U B R O U T I N E S ############################
 
 ##-------------------------------------------------------------------------##
-
-=head2 evolveBranch()
-
-  Use:  my $retVal = evolveBranch( $node, $parent );
-
-    $parameter1:   A generic scalar parameter
-    $parameter2:   A generic scalar parameter
-
-  $retVal contains the scalar result of this subroutine.  This
-  is a public function and this documentation will print out
-  when perldoc is run on this file.
-
-=cut
-
+#
+# evolveBranch()
+#
+#  Use:  my $retVal = evolveBranch( $node, $parent );
+#
+#    $parameter1:   A generic scalar parameter
+#    $parameter2:   A generic scalar parameter
+#
+#  $retVal contains the scalar result of this subroutine.  This
+#  is a public function and this documentation will print out
+#  when perldoc is run on this file.
+#
 ##-------------------------------------------------------------------------##·
 sub evolveBranch{
   my $node = shift;
@@ -541,9 +582,6 @@ sub evolveBranch{
     $branch_length = $1;
   }
 
-  # If parent is empty this is the root node. This would be a good chance
-  # to perform burn-in.  Not sure why that's necessary though.  For now
-  # this is unimplemented.
   if ( not defined $parent ) {
     # Do nothing
   }else {
@@ -553,22 +591,39 @@ sub evolveBranch{
     my ($parentSeqLen) = ($parentSeq =~ tr/ACGT/ACGT/);
     my $nodeSeq = $parentSeq; 
     # If the node is extant ( ie. doesn't have to be viable ) and
-    # we haven't reached our limit and our coin flip is heads
+    # we haven't reached our limit
     if ( not exists $node->{'CHILDREN'} ) {
-      my $fragLen = int(rand($parentSeqLen-$minFragLen))+$minFragLen;
-      my $startPos = int(rand($parentSeqLen-$fragLen));
-      my $idx = -1;
-      $nodeSeq = "";
-      for ( my $i = 0; $i < length($parentSeq); $i++ ) {
-        my $b = substr($parentSeq,$i,1);
-        $idx++ if ( $b ne "-" );
-        if ( $idx >= $startPos && $idx < $startPos + $fragLen ) {
-          $nodeSeq .= $b;
+      if ( $minFullLen > 0 ){
+        $minFullLen--;
+        print " - full length seq: $nodeSeq\n" if ( $verbosity >= 1 );
+      }else {
+        my $fragLen;
+        if ( $fragDist_stdev && $fragDist_mean ) {
+          my $ln_mean = log($fragDist_mean**2/(sqrt($fragDist_mean**2+$fragDist_stdev**2)));
+          my $ln_stdev = sqrt(log(1 + ($fragDist_stdev**2/$fragDist_mean**2)));
+          do { 
+            # Normal distribution
+            #$fragLen = gaussian_rand() * $fragDist_stdev + $fragDist_mean;
+            # Lognormal distribution
+            $fragLen = int(exp($ln_mean+$ln_stdev*gaussian_rand()));
+          } while ( $fragLen < $minFragLen || $fragLen > $parentSeqLen );
         }else {
-          $nodeSeq .= "-";
+          $fragLen = int(rand($parentSeqLen-$minFragLen))+$minFragLen;
         }
+        my $startPos = int(rand($parentSeqLen-$fragLen));
+        my $idx = -1;
+        $nodeSeq = "";
+        for ( my $i = 0; $i < length($parentSeq); $i++ ) {
+          my $b = substr($parentSeq,$i,1);
+          $idx++ if ( $b ne "-" );
+          if ( $idx >= $startPos && $idx < $startPos + $fragLen ) {
+            $nodeSeq .= $b;
+          }else {
+            $nodeSeq .= "-";
+          }
+        }
+        print " - fragment ( $fragLen, at $startPos ) seq: $nodeSeq\n" if ( $verbosity >= 1 );
       }
-      print " - fragment ( $fragLen, at $startPos ) seq: $nodeSeq\n" if ( $verbosity >= 1 );
     }else {
       print " - full length seq: $nodeSeq\n" if ( $verbosity >= 1 );
     }
@@ -678,29 +733,27 @@ sub evolveBranch{
 
 
 ##-------------------------------------------------------------------------##
-
-=head2 chooseIndelLength()
-
-  Use:  my $retVal = chooseIndelLength( $exponent, $max );
-
-    $exponent:    The exponent of the distribution
-    $max     :    The max value to accept from the distribution 
-
-  $retVal the length of an indel chosen from a power law probability
-  distribution.
-
-  Adapted from INDELIBLE, which in turn pulled this algorithm from 
-  DAWG (Cartwright, 2005).  
- 
-  They draw from a Zipfian distribution with a parameter 
-  $exponent > 1.0. Ref: Devroye Luc (1986) Non-uniform random 
-  variate generation. Springer-Verlag: Berlin. p551
- 
-  If this ends up being too slow INDELIBLE used the rejection-inversion 
-  method of Hormann and Derflinger (1996) to perform the same sample.
-
-=cut
-
+#
+#  chooseIndelLength()
+#
+#  Use:  my $retVal = chooseIndelLength( $exponent, $max );
+#
+#    $exponent:    The exponent of the distribution
+#    $max     :    The max value to accept from the distribution 
+#
+#  $retVal the length of an indel chosen from a power law probability
+#  distribution.
+#
+#  Adapted from INDELIBLE, which in turn pulled this algorithm from 
+#  DAWG (Cartwright, 2005).  
+# 
+#  They draw from a Zipfian distribution with a parameter 
+#  $exponent > 1.0. Ref: Devroye Luc (1986) Non-uniform random 
+#  variate generation. Springer-Verlag: Berlin. p551
+# 
+#  If this ends up being too slow INDELIBLE used the rejection-inversion 
+#  method of Hormann and Derflinger (1996) to perform the same sample.
+#
 ##-------------------------------------------------------------------------##·
 sub chooseIndelLength{
   my $exponent = shift;
@@ -721,36 +774,32 @@ sub chooseIndelLength{
 
 
 #-------------------------------------------------------------------------##
-
-=head2 generateDeletion()
-
-  Use:  my ($newNodeSeq, $new_total_sub_rate, $del_base_pos,
-            $del_align_pos, $deletionLen, $new_base_len ) = 
-                      generateDeletion( $nodeSeq, $total_sub_rate, 
-                                        $verbosity );
-
-    $nodeSeq         :    The exponent of the distribution
-    $total_sub_rate  :    The max value to accept from the distribution 
-    $verbosity       :
-
-  Returns.
-  Uses power-law 
-  Currently warns if sequence length is less than 4bp at the start.
-  Returns without deletion if sequence is zero bp.
-  Deletions that run off the end of the sequence ( because start
-  position is picked independent of size ) are equivalent to a deletion
-  of size (sequence_length - start_position).
-  
-
-    $newNodeSeq         :
-    $new_total_sub_rate :
-    $del_base_pos       :
-    $del_align_pos      :
-    $deletionLen        :
-    $new_base_len       :
-
-=cut
-
+#
+#  Use:  my ($newNodeSeq, $new_total_sub_rate, $del_base_pos,
+#            $del_align_pos, $deletionLen, $new_base_len ) = 
+#                      generateDeletion( $nodeSeq, $total_sub_rate, 
+#                                        $verbosity );
+#
+#    $nodeSeq         :    The exponent of the distribution
+#    $total_sub_rate  :    The max value to accept from the distribution 
+#    $verbosity       :
+#
+#  Returns.
+#  Uses power-law 
+#  Currently warns if sequence length is less than 4bp at the start.
+#  Returns without deletion if sequence is zero bp.
+#  Deletions that run off the end of the sequence ( because start
+#  position is picked independent of size ) are equivalent to a deletion
+#  of size (sequence_length - start_position).
+#  
+#
+#    $newNodeSeq         :
+#    $new_total_sub_rate :
+#    $del_base_pos       :
+#    $del_align_pos      :
+#    $deletionLen        :
+#    $new_base_len       :
+#
 ##-------------------------------------------------------------------------##·
 sub generateDeletion{
   my $nodeSeq = shift;
@@ -864,33 +913,31 @@ sub generateDeletion{
 
 
 #-------------------------------------------------------------------------##
-
-=head2 generateInsertion()
-
-  Use:  my ($newNodeSeq, $new_total_sub_rate, $ins_base_pos,
-            $ins_align_pos, $insertionSeq, $new_base_len ) = 
-                      generateInsertion( $nodeSeq, $total_sub_rate, 
-                                        $verbosity );
-
-    $nodeSeq         :    The current aligned sequence for the node
-    $total_sub_rate  :    The current total substitution rate for the node
-    $verbosity       :    The level of verbosity for logging
-
-  Returns.
-  Uses power-law 
-  Currently warns if sequence length is less than 4bp at the start.
-  Returns without insertion if sequence is zero bp.
-  Insertions can occur before/after the sequence.
-  
-    $newNodeSeq         :
-    $new_total_sub_rate :
-    $ins_base_pos       :
-    $ins_align_pos      :
-    $insertionSeq       :
-    $new_base_len       :
-
-=cut
-
+#
+#  generateInsertion()
+#
+#  Use:  my ($newNodeSeq, $new_total_sub_rate, $ins_base_pos,
+#            $ins_align_pos, $insertionSeq, $new_base_len ) = 
+#                      generateInsertion( $nodeSeq, $total_sub_rate, 
+#                                        $verbosity );
+#
+#    $nodeSeq         :    The current aligned sequence for the node
+#    $total_sub_rate  :    The current total substitution rate for the node
+#    $verbosity       :    The level of verbosity for logging
+#
+#  Returns.
+#  Uses power-law 
+#  Currently warns if sequence length is less than 4bp at the start.
+#  Returns without insertion if sequence is zero bp.
+#  Insertions can occur before/after the sequence.
+#  
+#    $newNodeSeq         :
+#    $new_total_sub_rate :
+#    $ins_base_pos       :
+#    $ins_align_pos      :
+#    $insertionSeq       :
+#    $new_base_len       :
+#
 ##-------------------------------------------------------------------------##·
 sub generateInsertion{
   my $nodeSeq = shift;
@@ -1015,29 +1062,27 @@ sub generateInsertion{
 
 
 #-------------------------------------------------------------------------##
-
-=head2 generateSubstitution()
-
-  Use:  my ($newNodeSeq, $new_total_sub_rate, $sub_base_pos,
-            $sub_align_pos, $prev_tri, $new_tri ) = 
-                      generateInsertion( $nodeSeq, $total_sub_rate, 
-                                        $verbosity );
-
-    $nodeSeq         :    The current aligned sequence for the node
-    $total_sub_rate  :    The current total substitution rate for the node
-    $verbosity       :    The level of verbosity for logging
-
-  Returns.
-  
-    $newNodeSeq         :
-    $new_total_sub_rate :
-    $sub_base_pos       :
-    $sub_align_pos      :
-    $prev_tri           :
-    $new_tri            :
-
-=cut
-
+#
+#  generateSubstitution()
+#
+#  Use:  my ($newNodeSeq, $new_total_sub_rate, $sub_base_pos,
+#            $sub_align_pos, $prev_tri, $new_tri ) = 
+#                      generateInsertion( $nodeSeq, $total_sub_rate, 
+#                                        $verbosity );
+#
+#    $nodeSeq         :    The current aligned sequence for the node
+#    $total_sub_rate  :    The current total substitution rate for the node
+#    $verbosity       :    The level of verbosity for logging
+#
+#  Returns.
+#  
+#    $newNodeSeq         :
+#    $new_total_sub_rate :
+#    $sub_base_pos       :
+#    $sub_align_pos      :
+#    $prev_tri           :
+#    $new_tri            :
+#
 ##-------------------------------------------------------------------------##·
 sub generateSubstitution{
   my $nodeSeq = shift;
@@ -1176,18 +1221,16 @@ sub generateSubstitution{
 
 
 #-------------------------------------------------------------------------##
-
-=head2 fixMissingNodeNames()
-
-  Use: &fixMissingNodeNames($node, $parent);
-
-    $node     :    ...
-    $parent   :    
-
-  Modifies the tree datastructure...
-
-=cut
-
+#
+#  fixMissingNodeNames()
+#
+#  Use: &fixMissingNodeNames($node, $parent);
+#
+#    $node     :    ...
+#    $parent   :    
+#
+#  Modifies the tree datastructure...
+#
 ##-------------------------------------------------------------------------##·
 sub fixMissingNodeNames {
   my $node = shift;
@@ -1239,18 +1282,16 @@ sub DFS_avgSubs {
 
 
 ##-------------------------------------------------------------------------##
-
-=head2 breadthFirstSearch()
-
-  Use: &breadthFirstSearch($root, $operation);
-
-    $root        :    ...
-    $operation   :    
-
-  Basic recursive breadth first search algorithm
-
-=cut
-
+#
+#  breadthFirstSearch()
+#
+#  Use: &breadthFirstSearch($root, $operation);
+#
+#    $root        :    ...
+#    $operation   :    
+#
+#  Basic recursive breadth first search algorithm
+#
 ##-------------------------------------------------------------------------##·
 sub breadthFirstSearch{
   my $root = shift;
@@ -1292,6 +1333,30 @@ sub breadthFirstSearch{
       }
     }
   }
+}
+
+##
+## "polar Box Muller method for turning two independent uniformly distributed 
+## random numbers between 0 and 1 (such as rand returns) into two numbers with
+## a mean of 0 and a standard deviation of 1 (i.e., a Gaussian distribution)."
+## https://docstore.mik.ua/orelly/perl/cookbook/ch02_11.htm
+## 
+## $val = gaussian_rand() * $std_dev + $mean;
+##
+sub gaussian_rand { 
+  my ($u1, $u2); # uniformly distributed random numbers 
+  my $w; # variance, then a weight 
+  my ($g1, $g2); # gaussian-distributed numbers 
+  do { 
+    $u1 = 2 * rand() - 1; 
+    $u2 = 2 * rand() - 1; 
+    $w = $u1*$u1 + $u2*$u2; 
+  } while ( $w >= 1 ); 
+  $w = sqrt( (-2 * log($w)) / $w ); 
+  $g2 = $u1 * $w; 
+  $g1 = $u2 * $w; 
+  # return both if wanted, else just one 
+  return wantarray ? ($g1, $g2) : $g1; 
 }
 
 1;

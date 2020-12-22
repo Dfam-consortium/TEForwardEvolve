@@ -6,14 +6,18 @@ genSimulations.nf : Run TEFowardEvolve with a single tree in replicate
 
  Parameters:
 
-     --outputDir        : Directory to store results in
-     --tree             : Newick file for the simulation
-     --seed             : Seed sequence FASTA file
-     --matrix           : Matrix
-     --transitionFactor : transition factor
-     --cpgFactor        : CpG factor
-     --replicates       : Number of replicates to generate [default 10]
-     --cluster          : Either "local", "quanah", "hrothgar" or "griz"
+     --outputDir <dir>      : Directory to store results in
+     --tree <tree_file>     : Newick file for the simulation
+     --seed <seed_file>     : Seed sequence FASTA file
+     --matrix <matrix_file> : Matrix
+     --minFragLen <#>       : Minimum fragment length
+     --minFullLen <#>       : Minimu number of full length seqs
+     --transitionFactor <#> : transition factor
+     --cpgFactor <#>        : CpG factor
+     --varyFragSize         : Vary fragment size rather than gput scales [ default: off ]
+     --gput <#>             : If varying fragment sizes this sets the fixed gput [default: 100]
+     --replicates <#>       : Number of replicates to generate [default 10]
+     --cluster <name>       : Either "local", "quanah", "hrothgar" or "griz"
 
  Example:
 
@@ -29,10 +33,14 @@ Robert Hubley, 10/2020
 params.cluster = "local"
 params.seed = "${workflow.projectDir}/seeds/L2.fa"
 params.tree = "${workflow.projectDir}/trees/LINETree.nw"
+params.minFullLen = "undefined"
 params.matrix = "undefined"
+params.minFragLen = "undefined"
 params.transitionFactor = "undefined"
 params.cpgFactor = "undefined"
 params.replicates = 10
+params.gput = 100
+params.varyFragSize = false
 params.outputDir = "${workflow.projectDir}/ExampleSim-LINETree-L2"
 
 treeValue = Channel.value(params.tree)
@@ -48,6 +56,14 @@ if ( params.matrix != "undefined" ) {
   if ( params.cpgFactor != "undefined" ) {
     matrixParam = matrixParam + " -cpg_factor ${params.cpgFactor}"
   }
+}
+
+otherParam = ""
+if ( params.minFullLen != "undefined" ) {
+  otherParam += " -min_full_len ${params.minFullLen}"
+}
+if ( params.minFragLen != "undefined" ) {
+  otherParam += " -min_frag_len ${params.minFragLen}"
 }
 
 //
@@ -84,34 +100,48 @@ if ( matrixParam == "" ) {
 }else {
   log.info "Matrix Param        : " + matrixParam
 }
+if ( otherParam != "" ) {
+  log.info "Other Param         : " + otherParam
+}
 log.info "Replicates          : " + params.replicates
+if ( params.varyFragSize ) {
+log.info "Parameter           : Fragmentation Size Distribution [gput=" + params.gput + "]"
+}else {
+log.info "Parameter           : Generations Per Unit Time"
+}
 log.info "Output Directory    : " + params.outputDir
 log.info "Cluster             : " + params.cluster
 log.info "Queue/Partititon    : " + thisQueue
 
 outputDir = params.outputDir
 
-
 setChan = Channel.from( "test", "train" )
-//scaleChan = Channel.from(100, 250, 500, 1000, 1500, 2000, 2500, 3000, 3500, 4000, 4500, 5000, 5500, 6000, 6500, 7000, 7500, 8000)
-// Probably not worth going higher than 7000 for these sims....but check average sub rates before commiting to an upper limit.
-scaleChan = Channel.from(100, 250, 500, 750, 1000, 1250, 1500, 1750, 2000, 2250, 2500, 2750, 3000, 3250, 3500, 4000, 5000, 6000) 
 replicateChan = Channel.of(1..params.replicates)
+
+scaleSimulationChan = Channel.from()
+fragSimulationChan = Channel.from()
+if ( params.varyFragSize ) {
+  fragChan = Channel.from([75, 300], [100, 300], [150,300], [200,300], [250,300], [300, 300], [400, 300], [500,300], [600,300], [800,300], [1000,300], [1200, 300])
+  fragSimulationChan = setChan.combine(fragChan.combine(replicateChan))
+}else {
+  scaleChan = Channel.from(100, 250, 500, 750, 1000, 1250, 1500, 1750, 2000, 2250, 2500, 2750, 3000, 3250, 3500, 4000, 5000, 6000) 
+  scaleSimulationChan = setChan.combine(scaleChan.combine(replicateChan))
+}
 
 //setChan = Channel.from( "test", "train" )
 //scaleChan = Channel.from(100, 250)
 //replicateChan = Channel.of(1..2)
 
-simulationChan = setChan.combine(scaleChan.combine(replicateChan))
 
 
-process runTEForwardEvolve {
+
+process runTEForwardEvolveScales {
   publishDir "${outputDir}", mode: 'copy', saveAs: { filename -> "rep-${replicate}/$filename" }
 
   input:
   path seedFile from seedValue
   path treeFile from treeValue
-  set set_val, scale, replicate from simulationChan
+  set set_val, scale, replicate from scaleSimulationChan
 
   output:
   file "*.log"
@@ -121,12 +151,36 @@ process runTEForwardEvolve {
   script:
   //log.info "Running: " + seedFile.name + " set= " + set_val + " scale=" + scale + " replicate=" + replicate
   """
-  ${workflow.projectDir}/TEForwardEvolve.pl ${matrixParam} -tree ${treeFile} -seed ${seedFile} -generations_per_unit_time ${scale} -verbosity 2 >& out.log
+  ${workflow.projectDir}/TEForwardEvolve.pl ${matrixParam} ${otherParam} -tree ${treeFile} -seed ${seedFile} -generations_per_unit_time ${scale} -verbosity 2 >& out.log
   mv out.log gput${scale}-${set_val}.log
   mv output-msa.fa gput${scale}-${set_val}-refmsa.fa
   mv output-seqs.fa gput${scale}-${set_val}-seqs.fa
   """
 }
+
+process runTEForwardEvolveFrags {
+  publishDir "${outputDir}", mode: 'copy', saveAs: { filename -> "rep-${replicate}/$filename" }
+
+  input:
+  path seedFile from seedValue
+  path treeFile from treeValue
+  set set_val, fmean, fstdev, replicate from fragSimulationChan
+
+  output:
+  file "*.log"
+  file "*refmsa.fa"
+  file "*seqs.fa"
+
+  script:
+  //log.info "Running: " + seedFile.name + " set= " + set_val + " fmean=" + fmean + " fstdev=" + fstdev + " replicate=" + replicate
+  """
+  ${workflow.projectDir}/TEForwardEvolve.pl ${matrixParam} ${otherParam} -fragment_size_mean ${fmean} -fragment_size_stdev ${fstdev} -tree ${treeFile} -seed ${seedFile} -generations_per_unit_time ${params.gput} -verbosity 2 >& out.log
+  mv out.log frag${fmean}-${fstdev}-${set_val}.log
+  mv output-msa.fa frag${fmean}-${fstdev}-${set_val}-refmsa.fa
+  mv output-seqs.fa frag${fmean}-${fstdev}-${set_val}-seqs.fa
+  """
+}
+
 
 workflow.onComplete {
   log.info """

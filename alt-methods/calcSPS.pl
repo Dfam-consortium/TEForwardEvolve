@@ -90,6 +90,7 @@ print "$i: $rID1, $rID2\n";
       }
     }
   }
+print "  - colSum = $colSum and refSum = $refSum\n";
   $SCScore += $colSum;
   $SRScore += $refSum;
 } # for ( my $i
