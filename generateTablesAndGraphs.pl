@@ -3,17 +3,8 @@ use strict;
 use Data::Dumper;
 use JSON;
 
-#my $evalDir = "DNATransTree-1-Tigger1-eval";
-#my $evalDir = "LINETree-1-L2-eval";
-#my $evalDir = "LINETree-1-L2-k80-eval";
-#my $evalDir = "DNATransTree-1-Tigger1-k80-eval";
-#my $evalDir = "DNATransTree-1-Tigger1-K80-auto-eval";
-#my $evalDir = "DNATransTree-1-Tigger1-K80-EINS-eval";
-#my $evalDir = "DNATransTree-1-Tigger1-K80-LINS-eval";
-#my $evalDir = "DNATransTree-1-Tigger1-K80-GINS-eval";
-my $evalDir = $ARGV[0];
-#
 
+my $evalDir = $ARGV[0];
 
 # Files:
 #
@@ -49,7 +40,7 @@ my $evalDir = $ARGV[0];
 # gput100-train-muscle.trimmed-cons.vs_refmsacons
 #
 #
-if ( 0 ) {
+if ( 1 ) {
 generateMSAViz( $evalDir );
 }
  
@@ -256,7 +247,7 @@ my %methodColors = (
       'mafft_mean' => "#FF9900",
       'clustalw2_mean' => "#109618",
       'dialign_mean' => "#990099",
-      'kalign_mean' => "#22AA99",
+      'kalign_mean' => "#AAAA11",
       'fsa_mean' => "#DD4477",
       'refmsa_mean' => "#0A69A2" ,
       'refmsa_low_stdev' => "#81B7D8",
@@ -304,6 +295,12 @@ my %summaryGraphMetaData = ( 'avgKDiv' =>
 open OUT,">$evalDir/graphs.html" or die;
 
   print OUT "<html>\n";
+  if ( $xParamName eq "frag" ) {
+    print OUT "<h2>Fragmentation Evaluation</h2>\n";
+  }else {
+    print OUT "<h2>Divergence Evaluation</h2>\n";
+  }
+  print OUT "<h3>$evalDir</h3>\n";
   print OUT "<head>\n";
   print OUT "  <script type=\"text/javascript\" src=\"https://www.gstatic.com/charts/loader.js\"></script>\n";
   print OUT "  <script type=\"text/javascript\">\n";

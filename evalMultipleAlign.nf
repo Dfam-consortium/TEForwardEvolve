@@ -752,7 +752,7 @@ process runNhmmerCONS {
   // Identify the "rep-#" directory from the path to the referenceMSAFile for output
   repDir = testSeqFile.toRealPath().getName(testSeqFile.toRealPath().getNameCount() - 2)
   """
-  ${hmmerDir}/nhmmer --noali --dfamtblout ${consFile.baseName}.nhmmer ${consFile} ${testSeqFile} > /dev/null
+  ${hmmerDir}/nhmmer --dna --noali --dfamtblout ${consFile.baseName}.nhmmer ${consFile} ${testSeqFile} > /dev/null
   cat ${consFile.baseName}.nhmmer | tr -s ' ' | cut -d ' ' -f 4 | awk '{s+=\$1} END {print s}' > ${consFile.baseName}.nhmmer_score
   """
 }
