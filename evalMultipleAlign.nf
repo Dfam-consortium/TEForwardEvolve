@@ -166,6 +166,9 @@ if ( runDialign ) {
 if ( runKalign ) {
   log.info "Kalign DIR          : " + kalignDir
 }
+if ( runFSA ) {
+  log.info "FSA DIR             : " + fsaDir
+}
 log.info "Cluster             : " + params.cluster
 log.info "Output DIR          : " + outputDir
 log.info "Queue/Partititon    : " + thisQueue

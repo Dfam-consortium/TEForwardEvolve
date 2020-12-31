@@ -1,6 +1,6 @@
 #!/usr/local/bin/perl
 use strict;
-use lib "/usr/local/RepeatMasker";
+use lib "/home/rhubley/projects/RepeatMasker";
 use SearchResult;
 use Matrix;
 
@@ -124,7 +124,11 @@ print "" . $sr->toStringFormatted(SearchResult::AlignWithQuerySeq) . "\n";
 print "Raw Score = $rawScore\n";
 print "Complexity Adjusted Score = $rescore\n";
 print "Kimura = " . sprintf("%0.2f",$divergence) . " %\n";
-print "Percent Substitutions = " .  sprintf("%0.2f",(100 *(( $transitions + $transversions ) / $well_characterized_bases))) . " %\n";
+if ( $well_characterized_bases > 0 ) {
+  print "Percent Substitutions = " .  sprintf("%0.2f",(100 *(( $transitions + $transversions ) / $well_characterized_bases))) . " %\n";
+}else {
+  print "Percent Substitutions = 0 %\n";
+}
 print "  - Transitions = $transitions (CpG adj)\n";
 print "  - Transversions = $transversions\n";
 print "Percent Insertion = " . sprintf("%0.2f",($insCnt/length($ref))*100) . " % [ $insCnt bp ]\n";
