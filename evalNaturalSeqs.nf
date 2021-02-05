@@ -156,6 +156,7 @@ process generateSamples {
   file "*sample.fa" into benchmarkFilesForKalign 
   file "*sample.fa" into benchmarkFilesForDialign 
   file "*sample.fa" into benchmarkFilesForFSA 
+  file "" into benchmarkFilesForBaseline
   file "*sample.fa"
 
   script:
@@ -428,6 +429,8 @@ process runRefiner {
   ${exonerateDir}/exonerate ${referenceSeqFile.baseName}-${methodPrefix}.cons.fa ${proteinFile} > ${referenceSeqFile.baseName}-${methodPrefix}.exonerate
   """
 }
+
+
 
 
 workflow.onComplete {

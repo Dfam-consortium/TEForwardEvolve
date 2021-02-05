@@ -43,6 +43,7 @@ my $evalDir = $ARGV[0];
 if ( 1 ) {
 generateMSAViz( $evalDir );
 }
+exit;
  
 opendir INDIR,"$evalDir" or die;
 my %data = ();
@@ -122,8 +123,11 @@ foreach my $xval ( keys(%{$data{'1'}}) ) {
     }
   }
 }
+#print "rep-1/frag1200 highest score possible = " . $data{"1"}->{'1200-300'}->{'refmsa'}->{'high_score'} . " = $high\n";
+
 my $spread = abs($high - $low);
 # Normalize values
+#print "rep-1/frag1200  BEFORE fsa score =  " . $data{"1"}->{'1200-300'}->{'fsa'}->{'vs_refmsacons'} . " high = $high low = $low\n";
 foreach my $xval ( keys(%{$data{'1'}}) ) {
   foreach my $replicate ( keys(%data) ) {
     foreach my $method ( keys(%{$data{$replicate}->{$xval}}) ) {
@@ -139,6 +143,7 @@ foreach my $xval ( keys(%{$data{'1'}}) ) {
     }
   }
 }
+#print "rep-1/frag1200  fsa score =  " . $data{"1"}->{'1200-300'}->{'fsa'}->{'vs_refmsacons'} . " high = $high low = $low\n";
 
 
 ##
@@ -189,7 +194,7 @@ foreach my $characteristic ( 'AMA_similarity_score', 'AMA_predictive_value',
   my $headerFlag = 1;
   foreach my $xval ( sort {$a <=> $b} keys(%stats) ) {
     my @row = ( $xval );
-    foreach my $method ( 'refiner-padded', 'muscle', 'refiner', 'mafft', 'clustalw2', 'dialign', 'kalign', 'fsa' ) {
+    foreach my $method ( 'refiner-padded', 'muscle', 'refiner', 'mafft', 'clustalw2', 'dialign', 'kalign', 'fsa', 'opal', 'clustalo' ) {
       next if ( ($method eq "refiner") && $characteristic !~ /(hmm\.|cons\.|vs_refmsacons)/ );
       next if ( $method eq "refiner-padded" && $characteristic eq "vs_refmsacons" );
       foreach my $stat ( 'mean', 'low_stdev', 'high_stdev' ) {
@@ -249,6 +254,8 @@ my %methodColors = (
       'dialign_mean' => "#990099",
       'kalign_mean' => "#AAAA11",
       'fsa_mean' => "#DD4477",
+      'opal_mean' => "#A6BDDB",
+      'clustalo_mean' => "#636363",
       'refmsa_mean' => "#0A69A2" ,
       'refmsa_low_stdev' => "#81B7D8",
       'refmsa_high_stdev' => "#81B7D8" );
@@ -368,7 +375,6 @@ open OUT,">$evalDir/graphs.html" or die;
   print OUT "</html>\n"; 
 close OUT;
 
-exit;
   
 # Replicate tables
 foreach my $replicate ( sort {$a <=> $b} keys(%data) ) {
@@ -379,10 +385,13 @@ foreach my $replicate ( sort {$a <=> $b} keys(%data) ) {
     my $headerFlag = 1;
     foreach my $gput ( sort {$a <=> $b} keys(%stats) ) {
       my @row = ( $gput );
-      foreach my $method ( 'refiner-padded', 'muscle', 'refiner', 'mafft', 'clustalw2', 'dialign', 'kalign', 'fsa' ) {
+      foreach my $method ( 'refiner-padded', 'muscle', 'refiner', 'mafft', 'clustalw2', 'dialign', 'kalign', 'fsa', 'opal', 'clustalo' ) {
         next if ( ($method eq "refiner") && $characteristic !~ /(hmm\.|cons\.|vs_refmsacons)/ );
         next if ( $method eq "refiner-padded" && $characteristic eq "vs_refmsacons" );
-        if ( $headerFlag ) {
+
+#print "c=$characteristic and m=$method and g=$gput and r=$replicate finally d = " . $data{$replicate}->{$gput}->{$method}->{$characteristic} . "\n";
+
+       if ( $headerFlag ) {
           push @header, $method
         }
         push @row, $data{$replicate}->{$gput}->{$method}->{$characteristic};
@@ -474,6 +483,8 @@ sub generateMSAViz {
         print "$gp\t$files\n";
         system("/home/rhubley/projects/RepeatModeler/util/viewMultipleMSA.pl $files");
         system("mv MultMSA.html $evalDir/html/rep-$replicate-$prefix$gp.html");
+        system("/home/rhubley/projects/RepeatModeler/util/viewMultipleMSA.pl -fullmsa $files");
+        system("mv MultMSA.html $evalDir/html/rep-$replicate-$prefix$gp-fullmsa.html");
       }
     } 
   }

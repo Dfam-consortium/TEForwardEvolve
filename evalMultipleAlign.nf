@@ -15,39 +15,11 @@ evalMultipleAlignment.nf : Evaluate multiple alignment programs on sequence sets
      --kalign             : Run Kalign [optional]
      --fsa                : Run FSA [optional]
      --clustalw2          : Run ClustalW2 [optional]
-     --mafft              : Run Mafft [optiona]
+     --clustalo           : Run ClustalOmega [optional]
+     --opal               : Run Opal [optional]
+     --mafft              : Run Mafft [optional]
      --cluster            : Either "local", "quanah", "hrothgar" or "griz" 
                             default="local"
-
- Others to evaluate:
-
-  Prank: 
-    /usr/local/prank/bin/prank -d=ff.seqs
-    Took 85 minutes for one alignment!
-    Changes ":" to "_"
-
-  T-Coffee: 
-     /nfs/public/ro/es/appbin/linux-x86_64/T-COFFEE_installer_Version_13.41.0.28bdc39_linux_x64/bin/t_coffee -in tcoffee-E20201208-235308-0480-65402959-p1m.sequence -case=upper -n_core=8 -output=clustalw,msf,phylip,score_html,fasta -outorder=aligned -type=dna; echo ' '
-    /usr/local/src/T-COFFEE_installer_Version_13.45.0.4846264_linux_x64/bin/t_coffee -in ff.seqs -case=upper -n_core=8 -output=fasta -outorder=aligned -type=dna
-    # uses 75G of RAM before it was killed  ( run at EBI took 20 minutes...at tcoffee.crg.cat it took 2 hrs 7 min )
-    # Changes ":" to "_"
-  
-  Clustal Omega:
-
-  FSA:
-
-
-    
-Test=gput2750-train-clustalw2.fa;Ref=gput2750-train-refmsa.fa;Q=0.0307;TC=0.00585
-Test=gput2750-train-mafft.fa;Ref=gput2750-train-refmsa.fa;Q=0.695;TC=0.0406
-Test=gput2750-train-muscle.fa;Ref=gput2750-train-refmsa.fa;Q=0.346;TC=0.0143
-Test=gput2750-train-refiner-padded.fa;Ref=gput2750-train-refmsa.fa;Q=0.669;TC=0.0179
-
-Test=dialign-msa.fa;Ref=rep-1/gput2750-train-refmsa.fa;Q=0.515;TC=0.0227
-Test=prank-msa.fa;Ref=rep-1/gput2750-train-refmsa.fa;Q=0.362;TC=0.0117
-Test=tcoffee-msa.fa;Ref=rep-1/gput2750-train-refmsa.fa;Q=0.3;TC=0.00622
-Test=kalign-msa.fa;Ref=rep-1/gput2750-train-refmsa.fa;Q=0.23;TC=0.00512
-
 
  Example:
 
@@ -71,6 +43,8 @@ params.mafft = false
 params.fsa = false
 params.dialign = false
 params.kalign = false
+params.clustalo = false
+params.opal = false
 params.benchmarkDir = "${workflow.projectDir}/sample"
 params.outputDir = "results"
 params.seed = "${workflow.projectDir}/sample/L2.fa"
@@ -82,6 +56,8 @@ runClustalW2 = params.clustalw2
 runDialign = params.dialign
 runKalign = params.kalign
 runFSA = params.fsa
+runClustalO = params.clustalo
+runOpal = params.opal
 runFastSP = false
 runQScore = true
 outputDir = params.outputDir
@@ -95,6 +71,8 @@ mafftDir = "/usr/local/mafft/bin"
 dialignDir = "/usr/local/dialign-tx-1.0.2"
 kalignDir = "/usr/local/kalign2"
 clustalW2Dir = "/usr/local/bin"
+clustalOmegaDir = "/u1/local/clustal-omega-1.2.4-binary"
+opalDir = "/u1/local/opal_2.1.3"
 fsaDir = "/usr/local/fsa/bin"
 dartDir = "/home/rhubley/projects/DNAMultipleAlignment/dart/bin"
 muscleDir = "/usr/local/bin"
@@ -169,11 +147,15 @@ if ( runKalign ) {
 if ( runFSA ) {
   log.info "FSA DIR             : " + fsaDir
 }
+if ( runClustalO ) { 
+  log.info "ClustalOmega DIR    : " + clustalOmegaDir
+}
+if ( runOpal ) {
+  log.info "Opal DIR            : " + opalDir
+}
 log.info "Cluster             : " + params.cluster
 log.info "Output DIR          : " + outputDir
 log.info "Queue/Partititon    : " + thisQueue
-
-
 
 
 
@@ -193,6 +175,8 @@ process processRefMSA {
   tuple file("*cons.fa"), file(testSeqFile), file(referenceMSAFile), file(referenceSeqFile) into benchmarkFilesForKalign
   tuple file("*cons.fa"), file(testSeqFile), file(referenceMSAFile), file(referenceSeqFile) into benchmarkFilesForDialign
   tuple file("*cons.fa"), file(testSeqFile), file(referenceMSAFile), file(referenceSeqFile) into benchmarkFilesForFSA
+  tuple file("*cons.fa"), file(testSeqFile), file(referenceMSAFile), file(referenceSeqFile) into benchmarkFilesForOpal
+  tuple file("*cons.fa"), file(testSeqFile), file(referenceMSAFile), file(referenceSeqFile) into benchmarkFilesForClustalO
   file "*cons.fa"
   file "*cons.vs_self"
   file "*cons.vs_seed"
@@ -460,7 +444,127 @@ process runClustalW2 {
   """
 }
 
- 
+process runClustalO {
+  cpus 16
+  publishDir "${outputDir}", mode: 'copy', saveAs: { filename -> "$repDir/$filename" }
+
+  input:
+  set file(referenceMSACons), file(testSeqFile), file(referenceMSAFile), file(referenceSeqFile) from benchmarkFilesForClustalO
+
+  when:
+  runClustalO
+
+  output:
+  tuple file("*clustalo.fa"), file(testSeqFile), file(referenceMSAFile), file(referenceSeqFile) into clustaloToAMAChan
+  tuple file("*clustalo.fa"), file(testSeqFile), file(referenceMSAFile), file(referenceSeqFile) into clustaloToQScoreChan
+  tuple file("*cons.fa"), file(testSeqFile) into clustaloToCrossmatchChan mode flatten
+  tuple file("*cons.fa"), file(testSeqFile) into clustaloToNhmmerCONSChan mode flatten
+  tuple file("*.hmm"), file(testSeqFile) into clustaloToNhmmerHMMChan mode flatten
+  file "*-clustalo.fa"
+  file "*-clustalo.hmm"
+  file "*-clustalo.cons.fa"
+  file "*-clustalo.trimmed-cons.fa"
+  file "*-clustalo.trimmed.hmm"
+  file "*-clustalo.cons.vs_refmsacons"
+  file "*-clustalo.trimmed-cons.vs_refmsacons"
+
+  script:
+  // Identify the prefix "gput100-train" from the filename for use in the script
+  simPrefix = (referenceMSAFile.name =~ /^(.*-train)/)[0][0]
+  // Identify the "rep-#" directory from the path to the referenceMSAFile for output
+  repDir = referenceMSAFile.toRealPath().getName(referenceMSAFile.toRealPath().getNameCount() - 2)
+  """
+  #### Run ClustalOmega
+  ${clustalOmegaDir}/clustalo --infile=${referenceSeqFile} --outfile=${simPrefix}-clustalo.fa --outfmt=FASTA --threads 16
+  ## This doesn't seem to be a problem with clustalomega
+  ##${clustalOmegaDir}/clustalo --infile=${referenceSeqFile} --outfile=mangled.fa --outfmt=FASTA
+  ##cat mangled.fa | perl -ne '{ if ( /^>node-\\d+/ ) { s/_/:/; } print; }' > ${simPrefix}-clustalo.fa 
+
+  #### Sanity Check MSA
+  # Since this is a full sequence MSA the validate the sequences against the reference MSA as a sanity check
+  ${workflow.projectDir}/validateEstimatedMSA.pl ${referenceMSAFile} ${simPrefix}-clustalo.fa
+
+  #### Generate Consensus Model
+  # Generate two consensus files from the multiple alignment.  One which includes single sequence alignment edges, and a trimmed version
+  # which trims back until there is at least one column containing two or more sequences.
+  ${repeatmodelerDir}/util/Linup -consensus -name ${referenceMSAFile.baseName} ${simPrefix}-clustalo.fa > ${simPrefix}-clustalo.cons.fa
+  ${workflow.projectDir}/trimUnalignedEdges.pl ${simPrefix}-clustalo.fa > trimmed-msa.fa
+  ${repeatmodelerDir}/util/Linup -consensus -name ${referenceMSAFile.baseName} trimmed-msa.fa > ${simPrefix}-clustalo.trimmed-cons.fa
+
+  #### Consensus VS Consensus
+  # Compare consensi to evalute how well each can rebuild the ref msa consensus
+  #   E.g. compareConsensiNeedle.pl gput100-train-clustalo.cons.fa L2.fa > gput100-train-clustalo.cons.vs_refmsacons
+  #        compareConsensiNeedle.pl gput100-train-clustalo.trimmed-cons.fa L2.fa > gput100-train-clustalo.trimmed-cons.vs_refmsacons
+  ${workflow.projectDir}/compareConsensiNeedle.pl ${simPrefix}-clustalo.cons.fa ${referenceMSACons} > ${simPrefix}-clustalo.cons.vs_refmsacons 
+  ${workflow.projectDir}/compareConsensiNeedle.pl ${simPrefix}-clustalo.trimmed-cons.fa ${referenceMSACons} > ${simPrefix}-clustalo.trimmed-cons.vs_refmsacons
+
+  #### Generate HMM Model
+  ${repeatmodelerDir}/util/Linup -noTemplate -name predicted -stockholm trimmed-msa.fa > trimmed.stk
+  ${hmmerDir}/hmmbuild ${simPrefix}-clustalo.trimmed.hmm trimmed.stk > trimmed-hmmbuild.log
+  ${repeatmodelerDir}/util/Linup -noTemplate -name predicted -stockholm ${simPrefix}-clustalo.fa > normal.stk
+  ${hmmerDir}/hmmbuild ${simPrefix}-clustalo.hmm normal.stk > hmmbuild.log
+  """
+}
+
+process runOpal {
+  cpus 1
+  publishDir "${outputDir}", mode: 'copy', saveAs: { filename -> "$repDir/$filename" }
+
+  input:
+  set file(referenceMSACons), file(testSeqFile), file(referenceMSAFile), file(referenceSeqFile) from benchmarkFilesForOpal
+
+  when:
+  runOpal
+
+  output:
+  tuple file("*opal.fa"), file(testSeqFile), file(referenceMSAFile), file(referenceSeqFile) into opalToAMAChan
+  tuple file("*opal.fa"), file(testSeqFile), file(referenceMSAFile), file(referenceSeqFile) into opalToQScoreChan
+  tuple file("*cons.fa"), file(testSeqFile) into opalToCrossmatchChan mode flatten
+  tuple file("*cons.fa"), file(testSeqFile) into opalToNhmmerCONSChan mode flatten
+  tuple file("*.hmm"), file(testSeqFile) into opalToNhmmerHMMChan mode flatten
+  file "*-opal.fa"
+  file "*-opal.hmm"
+  file "*-opal.cons.fa"
+  file "*-opal.trimmed-cons.fa"
+  file "*-opal.trimmed.hmm"
+  file "*-opal.cons.vs_refmsacons"
+  file "*-opal.trimmed-cons.vs_refmsacons"
+
+  script:
+  // Identify the prefix "gput100-train" from the filename for use in the script
+  simPrefix = (referenceMSAFile.name =~ /^(.*-train)/)[0][0]
+  // Identify the "rep-#" directory from the path to the referenceMSAFile for output
+  repDir = referenceMSAFile.toRealPath().getName(referenceMSAFile.toRealPath().getNameCount() - 2)
+  """
+  #### Run Opal
+  ${opalDir}/opal --mem 4G ${referenceSeqFile} > ${simPrefix}-opal.fa
+
+  #### Sanity Check MSA
+  # Since this is a full sequence MSA the validate the sequences against the reference MSA as a sanity check
+  ${workflow.projectDir}/validateEstimatedMSA.pl ${referenceMSAFile} ${simPrefix}-opal.fa
+
+  #### Generate Consensus Model
+  # Generate two consensus files from the multiple alignment.  One which includes single sequence alignment edges, and a trimmed version
+  # which trims back until there is at least one column containing two or more sequences.
+  ${repeatmodelerDir}/util/Linup -consensus -name ${referenceMSAFile.baseName} ${simPrefix}-opal.fa > ${simPrefix}-opal.cons.fa
+  ${workflow.projectDir}/trimUnalignedEdges.pl ${simPrefix}-opal.fa > trimmed-msa.fa
+  ${repeatmodelerDir}/util/Linup -consensus -name ${referenceMSAFile.baseName} trimmed-msa.fa > ${simPrefix}-opal.trimmed-cons.fa
+
+  #### Consensus VS Consensus
+  # Compare consensi to evalute how well each can rebuild the ref msa consensus
+  #   E.g. compareConsensiNeedle.pl gput100-train-opal.cons.fa L2.fa > gput100-train-opal.cons.vs_refmsacons
+  #        compareConsensiNeedle.pl gput100-train-opal.trimmed-cons.fa L2.fa > gput100-train-opal.trimmed-cons.vs_refmsacons
+  ${workflow.projectDir}/compareConsensiNeedle.pl ${simPrefix}-opal.cons.fa ${referenceMSACons} > ${simPrefix}-opal.cons.vs_refmsacons 
+  ${workflow.projectDir}/compareConsensiNeedle.pl ${simPrefix}-opal.trimmed-cons.fa ${referenceMSACons} > ${simPrefix}-opal.trimmed-cons.vs_refmsacons
+
+  #### Generate HMM Model
+  ${repeatmodelerDir}/util/Linup -noTemplate -name predicted -stockholm trimmed-msa.fa > trimmed.stk
+  ${hmmerDir}/hmmbuild ${simPrefix}-opal.trimmed.hmm trimmed.stk > trimmed-hmmbuild.log
+  ${repeatmodelerDir}/util/Linup -noTemplate -name predicted -stockholm ${simPrefix}-opal.fa > normal.stk
+  ${hmmerDir}/hmmbuild ${simPrefix}-opal.hmm normal.stk > hmmbuild.log
+  """
+}
+
 
 process runMafft {
   publishDir "${outputDir}", mode: 'copy', saveAs: { filename -> "$repDir/$filename" }
@@ -666,7 +770,7 @@ process evalAMA {
   publishDir "${outputDir}", mode: 'copy', saveAs: { filename -> "$repDir/$filename" }
 
   input:
-  set file(predictedMSAFile), file(testSeqFile), file(referenceMSAFile), file(referenceSeqFile) from refinerToAMAChan.mix(muscleToAMAChan,mafftToAMAChan,clustalw2ToAMAChan,dialignToAMAChan,kalignToAMAChan,fsaToAMAChan)
+  set file(predictedMSAFile), file(testSeqFile), file(referenceMSAFile), file(referenceSeqFile) from refinerToAMAChan.mix(muscleToAMAChan,mafftToAMAChan,clustalw2ToAMAChan,dialignToAMAChan,kalignToAMAChan,fsaToAMAChan, opalToAMAChan, clustaloToAMAChan)
 
   output:
   file "*.ama_score"
@@ -685,7 +789,7 @@ process evalQScore {
   publishDir "${outputDir}", mode: 'copy', saveAs: { filename -> "$repDir/$filename" }
 
   input:
-  set file(predictedMSAFile), file(testSeqFile), file(referenceMSAFile), file(referenceSeqFile) from refinerToQScoreChan.mix(muscleToQScoreChan,mafftToQScoreChan,clustalw2ToQScoreChan,dialignToQScoreChan,kalignToQScoreChan,fsaToQScoreChan)
+  set file(predictedMSAFile), file(testSeqFile), file(referenceMSAFile), file(referenceSeqFile) from refinerToQScoreChan.mix(muscleToQScoreChan,mafftToQScoreChan,clustalw2ToQScoreChan,dialignToQScoreChan,kalignToQScoreChan,fsaToQScoreChan,opalToQScoreChan,clustaloToQScoreChan)
 
   when:
   runQScore
@@ -706,7 +810,7 @@ process runCrossmatch {
   publishDir "${outputDir}", mode: 'copy', saveAs: { filename -> "$repDir/$filename" }
 
   input:
-  set file(consFile), file(testSeqFile) from refinerToCrossmatchChan.mix(muscleToCrossmatchChan,mafftToCrossmatchChan,clustalw2ToCrossmatchChan,dialignToCrossmatchChan,kalignToCrossmatchChan,fsaToCrossmatchChan)
+  set file(consFile), file(testSeqFile) from refinerToCrossmatchChan.mix(muscleToCrossmatchChan,mafftToCrossmatchChan,clustalw2ToCrossmatchChan,dialignToCrossmatchChan,kalignToCrossmatchChan,fsaToCrossmatchChan,opalToCrossmatchChan,clustaloToCrossmatchChan)
 
   output:
   file "*.cm_score"
@@ -726,7 +830,7 @@ process runNhmmerHMM {
   publishDir "${outputDir}", mode: 'copy', saveAs: { filename -> "$repDir/$filename" }
 
   input:
-  set file(hmmFile), file(testSeqFile) from refinerToNhmmerHMMChan.mix(muscleToNhmmerHMMChan,mafftToNhmmerHMMChan,clustalw2ToNhmmerHMMChan,dialignToNhmmerHMMChan,kalignToNhmmerHMMChan,fsaToNhmmerHMMChan)
+  set file(hmmFile), file(testSeqFile) from refinerToNhmmerHMMChan.mix(muscleToNhmmerHMMChan,mafftToNhmmerHMMChan,clustalw2ToNhmmerHMMChan,dialignToNhmmerHMMChan,kalignToNhmmerHMMChan,fsaToNhmmerHMMChan,opalToNhmmerHMMChan,clustaloToNhmmerHMMChan)
 
   output:
   file "*nhmmer"
@@ -745,7 +849,7 @@ process runNhmmerCONS {
   publishDir "${outputDir}", mode: 'copy', saveAs: { filename -> "$repDir/$filename" }
 
   input:
-  set file(consFile), file(testSeqFile) from refinerToNhmmerCONSChan.mix(muscleToNhmmerCONSChan,mafftToNhmmerCONSChan,clustalw2ToNhmmerCONSChan,dialignToNhmmerCONSChan,kalignToNhmmerCONSChan,fsaToNhmmerCONSChan)
+  set file(consFile), file(testSeqFile) from refinerToNhmmerCONSChan.mix(muscleToNhmmerCONSChan,mafftToNhmmerCONSChan,clustalw2ToNhmmerCONSChan,dialignToNhmmerCONSChan,kalignToNhmmerCONSChan,fsaToNhmmerCONSChan,opalToNhmmerCONSChan,clustaloToNhmmerCONSChan)
 
   output:
   file "*nhmmer"
