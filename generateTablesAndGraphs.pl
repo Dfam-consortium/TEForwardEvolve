@@ -194,7 +194,7 @@ foreach my $characteristic ( 'AMA_similarity_score', 'AMA_predictive_value',
   my $headerFlag = 1;
   foreach my $xval ( sort {$a <=> $b} keys(%stats) ) {
     my @row = ( $xval );
-    foreach my $method ( 'refiner-padded', 'muscle', 'refiner', 'mafft', 'clustalw2', 'dialign', 'kalign', 'fsa', 'opal', 'clustalo' ) {
+    foreach my $method ( 'refiner-padded', 'muscle', 'refiner', 'mafft', 'dialign', 'kalign', 'fsa', 'clustalo' ) {
       next if ( ($method eq "refiner") && $characteristic !~ /(hmm\.|cons\.|vs_refmsacons)/ );
       next if ( $method eq "refiner-padded" && $characteristic eq "vs_refmsacons" );
       foreach my $stat ( 'mean', 'low_stdev', 'high_stdev' ) {
@@ -251,14 +251,15 @@ my %methodColors = (
       'muscle_mean' => "#DC3912",
       'mafft_mean' => "#FF9900",
       'clustalw2_mean' => "#109618",
+      'clustalo_mean' => "#109618",
       'dialign_mean' => "#990099",
       'kalign_mean' => "#AAAA11",
       'fsa_mean' => "#DD4477",
       'opal_mean' => "#A6BDDB",
-      'clustalo_mean' => "#636363",
       'refmsa_mean' => "#0A69A2" ,
       'refmsa_low_stdev' => "#81B7D8",
       'refmsa_high_stdev' => "#81B7D8" );
+      #'clustalo_mean' => "#636363",
 
 my %summaryGraphMetaData = ( 'avgKDiv' => 
                                  { 'title' => 'Reference MSA Average Kimura Divergence',
@@ -385,7 +386,7 @@ foreach my $replicate ( sort {$a <=> $b} keys(%data) ) {
     my $headerFlag = 1;
     foreach my $gput ( sort {$a <=> $b} keys(%stats) ) {
       my @row = ( $gput );
-      foreach my $method ( 'refiner-padded', 'muscle', 'refiner', 'mafft', 'clustalw2', 'dialign', 'kalign', 'fsa', 'opal', 'clustalo' ) {
+      foreach my $method ( 'refiner-padded', 'muscle', 'refiner', 'mafft', 'dialign', 'kalign', 'fsa', 'clustalo' ) {
         next if ( ($method eq "refiner") && $characteristic !~ /(hmm\.|cons\.|vs_refmsacons)/ );
         next if ( $method eq "refiner-padded" && $characteristic eq "vs_refmsacons" );
 
