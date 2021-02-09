@@ -14,27 +14,10 @@ evalNaturalSeqs.nf : Evaluate multiple alignment programs on natural TE family
      --dialign            : Run DialignTX [optional]
      --kalign             : Run Kalign [optional]
      --fsa                : Run FSA [optional]
-     --clustalw2          : Run ClustalW2 [optional]
+     --clustalo          : Run ClustalOmega [optional]
      --mafft              : Run Mafft [optiona]
      --cluster            : Either "local", "quanah", "hrothgar" or "griz" 
                             default="local"
-
- Others to evaluate:
-
-  Prank: 
-    /usr/local/prank/bin/prank -d=ff.seqs
-    Took 85 minutes for one alignment!
-    Changes ":" to "_"
-
-  T-Coffee: 
-     /nfs/public/ro/es/appbin/linux-x86_64/T-COFFEE_installer_Version_13.41.0.28bdc39_linux_x64/bin/t_coffee -in tcoffee-E20201208-235308-0480-65402959-p1m.sequence -case=upper -n_core=8 -output=clustalw,msf,phylip,score_html,fasta -outorder=aligned -type=dna; echo ' '
-    /usr/local/src/T-COFFEE_installer_Version_13.45.0.4846264_linux_x64/bin/t_coffee -in ff.seqs -case=upper -n_core=8 -output=fasta -outorder=aligned -type=dna
-    # uses 75G of RAM before it was killed  ( run at EBI took 20 minutes...at tcoffee.crg.cat it took 2 hrs 7 min )
-    # Changes ":" to "_"
-  
-  Clustal Omega:
-
-  FSA:
 
 Robert Hubley, 12/2020
 */
@@ -44,7 +27,7 @@ Robert Hubley, 12/2020
 params.cluster = "local"
 params.muscle = false
 params.refiner = false
-params.clustalw2 = false
+params.clustalo = false
 params.mafft = false
 params.fsa = false
 params.dialign = false
@@ -56,7 +39,7 @@ params.protein = "undefined"
 runMuscle = params.muscle
 runRefiner = params.refiner
 runMafft = params.mafft
-runClustalW2 = params.clustalw2
+runClustalO = params.clustalo
 runDialign = params.dialign
 runKalign = params.kalign
 runFSA = params.fsa
@@ -69,7 +52,7 @@ mafftDir = "/usr/local/mafft/bin"
 //dialignDir = "/usr/local/dialign-2.2.1"
 dialignDir = "/usr/local/dialign-tx-1.0.2"
 kalignDir = "/usr/local/kalign2"
-clustalW2Dir = "/usr/local/bin"
+clustalOmegaDir = "/u1/local/clustal-omega-1.2.4-binary"
 fsaDir = "/usr/local/fsa/bin"
 muscleDir = "/usr/local/bin"
 exonerateDir = "/usr/local/exonerate-2.2.0-x86_64/bin"
@@ -121,8 +104,8 @@ if ( runMuscle ) {
 if ( runMafft ) {
   log.info "Mafft DIR           : " + mafftDir
 }
-if ( runClustalW2 ) {
-  log.info "ClustalW2 DIR       : " + clustalW2Dir
+if ( runClustalO ) {
+  log.info "ClustalOmega DIR       : " + clustalOmegaDir
 }
 if ( runRefiner ) {
   log.info "Refiner DIR         : " + repeatmodelerDir
@@ -149,7 +132,7 @@ process generateSamples {
   file seqFile
   
   output:
-  file "*sample.fa" into benchmarkFilesForClustalW2 
+  file "*sample.fa" into benchmarkFilesForClustalO
   file "*sample.fa" into benchmarkFilesForMafft 
   file "*sample.fa" into benchmarkFilesForMuscle 
   file "*sample.fa" into benchmarkFilesForRefiner 
@@ -282,30 +265,31 @@ process runDialign {
   """
 }
 
-process runClustalW2 {
+
+process runClustalO {
+  cpus 16
   publishDir "${outputDir}", mode: 'copy'
 
   input:
   file proteinFile
-  file referenceSeqFile from benchmarkFilesForClustalW2.flatten()
+  file referenceSeqFile from benchmarkFilesForClustalO.flatten()
 
   when:
-  runClustalW2
+  runClustalO
 
   output:
-  file "*-clustalw2.fa"
-  file "*-clustalw2.cons.fa"
-  file "*-clustalw2.blastx"
-  file "*-clustalw2.exonerate"
-  file "*-clustalw2.time"
+  file "*-clustalo.fa"
+  file "*-clustalo.cons.fa"
+  file "*-clustalo.blastx"
+  file "*-clustalo.exonerate"
+  file "*-clustalo.time"
 
   script:
-  methodPrefix = "clustalw2"
+  methodPrefix = "clustalo"
   """
-  #### Run ClustalW2
   SECONDS=0
-  /usr/local/bin/clustalw2 -infile=${referenceSeqFile} -align -outfile=mangled.fa -output=FASTA
-  cat mangled.fa | perl -ne '{ if ( /^>node-\\d+/ ) { s/_/:/; } print; }' > ${referenceSeqFile.baseName}-${methodPrefix}.fa
+  #### Run ClustalOmega
+  ${clustalOmegaDir}/clustalo --infile=${referenceSeqFile} --outfile=${referenceSeqFile.baseName}-${methodPrefix}.fa --outfmt=FASTA --threads 16
   echo \$SECONDS > ${referenceSeqFile.baseName}-${methodPrefix}.time
 
   # Gen cons and eval

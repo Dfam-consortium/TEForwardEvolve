@@ -40,10 +40,9 @@ my $evalDir = $ARGV[0];
 # gput100-train-muscle.trimmed-cons.vs_refmsacons
 #
 #
-if ( 1 ) {
+if ( 0 ) {
 generateMSAViz( $evalDir );
 }
-exit;
  
 opendir INDIR,"$evalDir" or die;
 my %data = ();
@@ -156,24 +155,51 @@ foreach my $replicate ( keys(%data) ) {
       foreach my $column ( keys(%{$data{$replicate}->{$xval}->{$method}}) ) {
         $stats{$xval}->{$method}->{"sum_".$column} += $data{$replicate}->{$xval}->{$method}->{$column};
         $stats{$xval}->{$method}->{"count_".$column}++;
-        $stats{$xval}->{$method}->{"mean_".$column} = $stats{$xval}->{$method}->{"sum_".$column} / $stats{$xval}->{$method}->{"count_".$column};
       }
     }
   }
 }
+foreach my $xval ( keys(%{$data{'1'}}) ) {
+  foreach my $method ( keys(%{$data{'1'}->{$xval}}) ) {
+    foreach my $column ( keys(%{$data{'1'}->{$xval}->{$method}}) ) {
+      $stats{$xval}->{$method}->{"mean_".$column} = $stats{$xval}->{$method}->{"sum_".$column} / $stats{$xval}->{$method}->{"count_".$column};
+    }
+  }
+}
+ 
+##
+##
+##
 foreach my $replicate ( keys(%data) ) {
   foreach my $xval ( keys(%{$data{$replicate}}) ) {
     foreach my $method ( keys(%{$data{$replicate}->{$xval}}) ) {
       foreach my $column ( keys(%{$data{$replicate}->{$xval}->{$method}}) ) {
         $stats{$xval}->{$method}->{"sum_stdev_".$column} += ($data{$replicate}->{$xval}->{$method}->{$column} - $stats{$xval}->{$method}->{"mean_".$column})**2;
-        $stats{$xval}->{$method}->{"stdev_".$column} += sqrt($stats{$xval}->{$method}->{"sum_stdev_".$column}/$stats{$xval}->{$method}->{"count_".$column});
-        $stats{$xval}->{$method}->{"low_stdev_".$column} = $stats{$xval}->{$method}->{"mean_".$column} - $stats{$xval}->{$method}->{"stdev_".$column};
-        $stats{$xval}->{$method}->{"high_stdev_".$column} = $stats{$xval}->{$method}->{"mean_".$column} + $stats{$xval}->{$method}->{"stdev_".$column};
       }
     }
   }
 }
+foreach my $xval ( keys(%{$data{'1'}}) ) {
+  foreach my $method ( keys(%{$data{'1'}->{$xval}}) ) {
+    foreach my $column ( keys(%{$data{'1'}->{$xval}->{$method}}) ) {
+        $stats{$xval}->{$method}->{"stdev_".$column} = sqrt($stats{$xval}->{$method}->{"sum_stdev_".$column}/$stats{$xval}->{$method}->{"count_".$column});
+        $stats{$xval}->{$method}->{"low_stdev_".$column} = $stats{$xval}->{$method}->{"mean_".$column} - $stats{$xval}->{$method}->{"stdev_".$column};
+        $stats{$xval}->{$method}->{"high_stdev_".$column} = $stats{$xval}->{$method}->{"mean_".$column} + $stats{$xval}->{$method}->{"stdev_".$column};
+        # So graphs don't go below 0
+        $stats{$xval}->{$method}->{"low_stdev_".$column} = 0 if ( $stats{$xval}->{$method}->{"low_stdev_".$column} < 0 );
+        $stats{$xval}->{$method}->{"high_stdev_".$column} = 0 if ( $stats{$xval}->{$method}->{"high_stdev_".$column} < 0 );
 
+    }
+  }
+}
+
+#print "Stats method=QScore_Q,gput=100,refiner-padded_sum = " . $stats{'100'}->{'refiner-padded'}->{'sum_QScore_Q'} . "\n";
+#print "Stats method=QScore_Q,gput=100,refiner-padded_mean = " . $stats{'100'}->{'refiner-padded'}->{'mean_QScore_Q'} . "\n";
+#print "Stats method=QScore_Q,gput=100,refiner-padded_count = " . $stats{'100'}->{'refiner-padded'}->{'count_QScore_Q'} . "\n";
+#print "Stats method=QScore_Q,gput=100,refiner-padded_sum_stdev = " . $stats{'100'}->{'refiner-padded'}->{'sum_stdev_QScore_Q'} . "\n";
+#print "Stats method=QScore_Q,gput=100,refiner-padded_stdev = " . $stats{'100'}->{'refiner-padded'}->{'stdev_QScore_Q'} . "\n";
+#print "Stats method=QScore_Q,gput=100,refiner-padded_stdev low = " . $stats{'100'}->{'refiner-padded'}->{'low_stdev_QScore_Q'} . "\n";
+#print "Stats method=QScore_Q,gput=100,refiner-padded_stdev high = " . $stats{'100'}->{'refiner-padded'}->{'high_stdev_QScore_Q'} . "\n";
 #print "Dumper: " . Dumper(\%data) . "\n";
 #print "Dumper: " . Dumper(\%stats) . "\n";
 #die;
@@ -299,9 +325,8 @@ my %summaryGraphMetaData = ( 'avgKDiv' =>
                                    'yAxis' => 'Ideal NW Score Fraction' },
                            );
 
-# Print summary graphs
-open OUT,">$evalDir/graphs.html" or die;
-
+  # Print summary graphs ( w/o stdev )
+  open OUT,">$evalDir/graphs.html" or die;
   print OUT "<html>\n";
   if ( $xParamName eq "frag" ) {
     print OUT "<h2>Fragmentation Evaluation</h2>\n";
@@ -374,7 +399,94 @@ open OUT,">$evalDir/graphs.html" or die;
   }
   print OUT "</body>\n";
   print OUT "</html>\n"; 
-close OUT;
+  close OUT;
+
+  # Save graphs with stdev intervals
+  open OUT,">$evalDir/graphs-wstdev.html" or die;
+  print OUT "<html>\n";
+  if ( $xParamName eq "frag" ) {
+    print OUT "<h2>Fragmentation Evaluation</h2>\n";
+  }else {
+    print OUT "<h2>Divergence Evaluation</h2>\n";
+  }
+  print OUT "<h3>$evalDir</h3>\n";
+  print OUT "<head>\n";
+  print OUT "  <script type=\"text/javascript\" src=\"https://www.gstatic.com/charts/loader.js\"></script>\n";
+  print OUT "  <script type=\"text/javascript\">\n";
+  print OUT "     google.charts.load('current', {'packages':['corechart']});\n";
+  print OUT "     google.charts.setOnLoadCallback(drawChart);\n";
+  print OUT "     function drawChart() {\n";
+  my @divs = ();
+  my $id = 0;
+  foreach my $characteristic ( sort { $a cmp $b } keys %{$tables{'summary'}} ) {
+    my $metaData = $summaryGraphMetaData{$characteristic};
+    my @data = ();
+    my @colors = ();
+    my $dataTable = [];
+    my $useStats = undef;
+    if ( $characteristic =~ /KDiv/ ) {
+      next if ( $xParamName eq "frag" );
+      $useStats = 1;
+    }
+    for ( my $i = 0; $i <= $#{$tables{'summary'}->{$characteristic}->{'header'}}; $i++ ) {
+      my $heading = $tables{'summary'}->{$characteristic}->{'header'}->[$i];
+      my $hdrHash;
+      #next if ( !defined $useStats && $heading =~ /_stdev/ );
+      if ( $heading =~ /_stdev/ ) {
+        $hdrHash = { 'label' => $heading, 'id' => "id" . $id,  'type' => 'number', 'role' => 'interval'};
+      }elsif ( $heading =~ /frag/ ) {
+        $hdrHash = { 'label' => $heading, 'id' => "id" . $id};
+      }else {
+        $hdrHash = { 'label' => $heading, 'id' => "id" . $id,  'type' => 'number'};
+      }
+      $id++;
+      push @data, $hdrHash;
+      if ( exists $methodColors{$heading} ) {
+        push @colors, $methodColors{$heading};
+      }
+    }
+    push @{$dataTable}, [@data];
+    foreach my $row ( @{$tables{'summary'}->{$characteristic}->{'data'}} )  {
+      @data = ();
+      for ( my $i = 0; $i <= $#{$tables{'summary'}->{$characteristic}->{'header'}}; $i++ ) {
+        my $heading = $tables{'summary'}->{$characteristic}->{'header'}->[$i];
+        #next if ( !defined $useStats && $heading =~ /_stdev/ );
+
+        # Convert GPUT to average divergence
+        my $val = $row->[$i];
+        if ( $heading eq "gput" && $characteristic !~ /KDiv/ ) {
+          $val =  $stats{$val}->{'refmsa'}->{"mean_avgKDiv"};
+          push @data,  $val;
+        }elsif ( $heading eq "frag" ) {
+          push @data,  $val . "";
+        }elsif ( defined $val ) {
+           push @data,  $val + 0;
+        }else {
+           push @data, 0;
+        }
+      }
+      push @{$dataTable},[@data];
+    }
+
+    my $graphDir = 1;
+    $graphDir = -1 if ( $xParamName eq "frag" );
+    my ($hashID, $jStr, $hStr) = generateChart($metaData->{'title'},$metaData->{'xAxis'}, $metaData->{'yAxis'}, $dataTable, $graphDir, \@colors);
+    print OUT "        $jStr\n";
+    print OUT "     var chart_$hashID = new google.visualization.LineChart(document.getElementById('div_$hashID'));\n";
+    print OUT "     chart_$hashID.draw(data_$hashID,options_$hashID);\n\n";
+    push @divs, $hStr;
+  }
+  print OUT "     }\n";
+  print OUT "  </script>\n";
+  print OUT "</head>\n";
+  print OUT "<body>\n";
+  foreach my $div ( @divs ) {
+    print OUT "   $div\n";
+  }
+  print OUT "</body>\n";
+  print OUT "</html>\n"; 
+  close OUT;
+
 
   
 # Replicate tables
@@ -521,6 +633,7 @@ sub generateChart {
   $drawChartJSON .= "  title: \'$title\',\n";
   $drawChartJSON .= "  width: 1200,\n";
   $drawChartJSON .= "  height: 500,\n";
+  $drawChartJSON .= "  intervals: { 'style':'area' },\n";
   $drawChartJSON .= "  titleTextStyle: { color: '#808080', fontSize: 20, bold: false },\n";
   $drawChartJSON .= "  legend: { textStyle: { color: '#505050', fontSize: 12, italic: false }},\n";
   if ( $xDirection == -1 ) {
