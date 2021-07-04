@@ -1,3 +1,4 @@
+#!/usr/bin/python3
 from scipy.stats import wilcoxon
 from scipy.stats import norm
 from scipy.stats import kruskal
@@ -14,6 +15,7 @@ import matplotlib.pyplot as plt
 replicate_idx = 0
 file_data = ""
 with open("/u1/home/rhubley/projects/DNAMultipleAlignment/TEForwardEvolve/paper-data/DNATransTree-1-Tigger1-R3S-eval-new2/replicates.csv") as infile:
+#with open("/u1/home/rhubley/projects/DNAMultipleAlignment/TEForwardEvolve/paper-data/LINETree-1-L2-R3S-eval-new/replicates.csv") as infile:
     for line in infile:
         if line.startswith("AMA"):
             replicate_idx += 1

@@ -73,7 +73,9 @@ while ( my $entry = readdir(INDIR) ){
           }
         }elsif ( $suffix =~ /\.(qscore_score)/ ) {
           my $scoresRef = readQScore("$evalDir/$entry/$repEntry");
+print "Reading: $entry/$repEntry\n" if ( $entry eq "rep-10" && $method eq "clustalo" );
           foreach my $key ( keys %{$scoresRef} ) {
+print "                 $key -> $scoresRef->{$key}\n" if ( $entry eq "rep-10" && $method eq "clustalo" );
             $data{$replicate}->{$xparam}->{$method}->{$key} = $scoresRef->{$key};
           }
         }elsif ( $suffix =~ /\.nw_score/ ) {
@@ -133,8 +135,12 @@ foreach my $xval ( keys(%{$data{'1'}}) ) {
        next if ( $method eq "refmsa" || $method eq "refiner-padded" );
        if ( exists $data{$replicate}->{$xval}->{$method}->{'vs_refmsacons'} ) {
          my $val = $data{$replicate}->{$xval}->{$method}->{'vs_refmsacons'};
+         # For fraction it's:
          my $newVal = ($val - $low) / $spread;
-          $data{$replicate}->{$xval}->{$method}->{'vs_refmsacons'} = $newVal;
+         # For score distance 
+         #my $newVal = $high - $val;
+         #print "method=$method High = $high val = $val, newVal = $newVal\n";
+         $data{$replicate}->{$xval}->{$method}->{'vs_refmsacons'} = $newVal;
          if ( $newVal < 0 ) { 
            print "Hmm...rep=$replicate, xval=$xval, rawscore = $val, newval = $newVal high = $high,  low=$low, spread = $spread\n";
          }
@@ -188,7 +194,11 @@ foreach my $xval ( keys(%{$data{'1'}}) ) {
         # So graphs don't go below 0
         $stats{$xval}->{$method}->{"low_stdev_".$column} = 0 if ( $stats{$xval}->{$method}->{"low_stdev_".$column} < 0 );
         $stats{$xval}->{$method}->{"high_stdev_".$column} = 0 if ( $stats{$xval}->{$method}->{"high_stdev_".$column} < 0 );
-
+        # Stderr
+        my $unbSampleStdDev = sqrt($stats{$xval}->{$method}->{"sum_stdev_".$column}/($stats{$xval}->{$method}->{"count_".$column}-1));
+        $stats{$xval}->{$method}->{"stderr_".$column} = $unbSampleStdDev / sqrt($stats{$xval}->{$method}->{"count_".$column});
+        $stats{$xval}->{$method}->{"high_stderr_".$column} = $stats{$xval}->{$method}->{"mean_".$column} + (2*$stats{$xval}->{$method}->{"stderr_".$column});
+        $stats{$xval}->{$method}->{"low_stderr_".$column} = $stats{$xval}->{$method}->{"mean_".$column} - (2*$stats{$xval}->{$method}->{"stderr_".$column});
     }
   }
 }
@@ -223,7 +233,7 @@ foreach my $characteristic ( 'AMA_similarity_score', 'AMA_predictive_value',
     foreach my $method ( 'refiner-padded', 'muscle', 'refiner', 'mafft', 'dialign', 'kalign', 'fsa', 'clustalo' ) {
       next if ( ($method eq "refiner") && $characteristic !~ /(hmm\.|cons\.|vs_refmsacons)/ );
       next if ( $method eq "refiner-padded" && $characteristic eq "vs_refmsacons" );
-      foreach my $stat ( 'mean', 'low_stdev', 'high_stdev' ) {
+      foreach my $stat ( 'mean', 'low_stdev', 'high_stdev', 'low_stderr', 'high_stderr' ) {
         if ( $headerFlag ) {
           push @header, "$method" . "_$stat"; 
         }
@@ -268,8 +278,10 @@ foreach my $tableType ( 'summary' ) {
 close OUT;
 
 my $xAxis = "Average Kimura Divergence";
+my $xTicks = "[ 0.05, 0.10, 0.15, 0.20, 0.25, 0.30, 0.35, 0.40, 0.45, 0.50]";
 if ( $xParamName eq "frag" ) {
   $xAxis = "Sequence Fragment Size Distribution (bp_mean - bp_stdev)";
+  $xTicks = "";
 }
 my %methodColors = ( 
       'refiner-padded_mean' => "#3366CC",
@@ -290,39 +302,53 @@ my %methodColors = (
 my %summaryGraphMetaData = ( 'avgKDiv' => 
                                  { 'title' => 'Reference MSA Average Kimura Divergence',
                                    'xAxis' => 'Generations Per Unit Time',
-                                   'yAxis' => 'Average Kimura Divergence' },
+                                   'yAxis' => 'Average Kimura Divergence',
+                                   'vMax' => 1.0 },
                              'AMA_similarity_score' => 
                                  { 'title' => 'AMA Similarity Score',
                                    'xAxis' => $xAxis,
-                                   'yAxis' => 'Similarity Score' },
+                                   'yAxis' => 'Similarity Score',
+                                   'vMax'  => 1.0,
+                                   'xTicks' => $xTicks },
                              'AMA_predictive_value' => 
                                  { 'title' => 'AMA Predictive Value [modeler score]',
                                    'xAxis' => $xAxis,
-                                   'yAxis' => 'Predictive Value' },
+                                   'yAxis' => 'Predictive Value' ,
+                                   'vMax'  => 1.0,
+                                   'xTicks' => $xTicks },
                              'QScore_Q' =>
                                  { 'title' => 'QScore Developer Score [sum of pairs]',
                                    'xAxis' => $xAxis,
-                                   'yAxis' => 'Developer Score' },
+                                   'yAxis' => 'Average Developer Score',
+                                   'vMax'  => 1.0,
+                                   'xTicks' => $xTicks },
                              'QScore_TC' =>
                                  { 'title' => 'QScore Total Column Score',
                                    'xAxis' => $xAxis,
-                                   'yAxis' => 'Total Column Score' },
+                                   'yAxis' => 'Total Column Score',
+                                   'vMax'  => 1.0,
+                                   'xTicks' => $xTicks },
                              'cons.cm_score' =>
                                  { 'title' => 'Crossmatch - Predicted Consensus vs Test Sequences',
                                    'xAxis' => $xAxis,
-                                   'yAxis' => 'Total Complexity Adjusted Score' },
+                                   'yAxis' => 'Total Complexity Adjusted Score',
+                                   'xTicks' => $xTicks },
                              'cons.nhmmer_score' =>
                                  { 'title' => 'Nhmmer - Predicted Consensus vs Test Sequences',
                                    'xAxis' => $xAxis,
-                                   'yAxis' => 'Total Bit Score' },
+                                   'yAxis' => 'Total Bit Score',
+                                   'xTicks' => $xTicks },
                              'hmm.nhmmer_score' => 
                                  { 'title' => 'Nhmmer - Predicted HMM vs Test Sequences',
                                    'xAxis' => $xAxis,
-                                   'yAxis' => 'Total Bit Score' },
+                                   'yAxis' => 'Total Bit Score',
+                                   'xTicks' => $xTicks },
                              'vs_refmsacons' =>
-                                 { 'title' => 'Predicted vs Reference MSA Consensus',
+                                 { 'title' => 'Derived Consensus Accuracy',
                                    'xAxis' => $xAxis,
-                                   'yAxis' => 'Ideal NW Score Fraction' },
+                                   'yAxis' => 'Ideal NW Score Fraction',
+                                   'vMax'  => 1.0,
+                                   'xTicks' => $xTicks },
                            );
 
   # Print summary graphs ( w/o stdev )
@@ -339,6 +365,14 @@ my %summaryGraphMetaData = ( 'avgKDiv' =>
   print OUT "  <script type=\"text/javascript\">\n";
   print OUT "     google.charts.load('current', {'packages':['corechart']});\n";
   print OUT "     google.charts.setOnLoadCallback(drawChart);\n";
+  print OUT "     function displaySVG( id ) {\n";
+  print OUT "         var e = document.getElementById(id);\n";
+  print OUT "         var f = e.getElementsByTagName('svg')[0].outerHTML;\n";
+  #print OUT "         var data = new DataTransfer();\n";
+  #print OUT "         data.items.add(f,'text/plain');\n";
+  #print OUT "         navigator.clipboard.write(data);\n";
+  print OUT "         navigator.clipboard.writeText(f);\n";
+  print OUT "     }\n";
   print OUT "     function drawChart() {\n";
   my @divs = ();
   foreach my $characteristic ( sort { $a cmp $b } keys %{$tables{'summary'}} ) {
@@ -353,8 +387,12 @@ my %summaryGraphMetaData = ( 'avgKDiv' =>
     }
     for ( my $i = 0; $i <= $#{$tables{'summary'}->{$characteristic}->{'header'}}; $i++ ) {
       my $heading = $tables{'summary'}->{$characteristic}->{'header'}->[$i];
-      next if ( !defined $useStats && $heading =~ /_stdev/ );
-      push @data, $heading;
+      next if ( $heading =~ /_stdev/ || $heading =~ /_stderr/ );
+      # Strip off "_mean" from the labels
+      my $methodLabel = $heading;
+      $methodLabel =~ s/_mean//g;
+      #push @data, $heading;
+      push @data, $methodLabel;
       if ( exists $methodColors{$heading} ) {
         push @colors, $methodColors{$heading};
       }
@@ -364,7 +402,7 @@ my %summaryGraphMetaData = ( 'avgKDiv' =>
       @data = ();
       for ( my $i = 0; $i <= $#{$tables{'summary'}->{$characteristic}->{'header'}}; $i++ ) {
         my $heading = $tables{'summary'}->{$characteristic}->{'header'}->[$i];
-        next if ( !defined $useStats && $heading =~ /_stdev/ );
+        next if ( $heading =~ /_stdev/ || $heading =~ /_stderr/ );
 
         # Convert GPUT to average divergence
         my $val = $row->[$i];
@@ -384,7 +422,11 @@ my %summaryGraphMetaData = ( 'avgKDiv' =>
 
     my $graphDir = 1;
     $graphDir = -1 if ( $xParamName eq "frag" );
-    my ($hashID, $jStr, $hStr) = generateChart($metaData->{'title'},$metaData->{'xAxis'}, $metaData->{'yAxis'}, $dataTable, $graphDir, \@colors);
+    my $vMax = "";
+    $vMax = $metaData->{'vMax'} if ( exists $metaData->{'vMax'} );
+    my $xTicks = "";
+    $xTicks = $metaData->{'xTicks'} if ( exists $metaData->{'xTicks'} );
+    my ($hashID, $jStr, $hStr) = generateChart($metaData->{'title'},$metaData->{'xAxis'}, $metaData->{'yAxis'}, $dataTable, $graphDir, \@colors, $vMax, $xTicks);
     print OUT "        $jStr\n";
     print OUT "     var chart_$hashID = new google.visualization.LineChart(document.getElementById('div_$hashID'));\n";
     print OUT "     chart_$hashID.draw(data_$hashID,options_$hashID);\n\n";
@@ -401,8 +443,9 @@ my %summaryGraphMetaData = ( 'avgKDiv' =>
   print OUT "</html>\n"; 
   close OUT;
 
-  # Save graphs with stdev intervals
-  open OUT,">$evalDir/graphs-wstdev.html" or die;
+  # Save graphs with stderr intervals
+  #open OUT,">$evalDir/graphs-wstdev.html" or die;
+  open OUT,">$evalDir/graphs-wstderr.html" or die;
   print OUT "<html>\n";
   if ( $xParamName eq "frag" ) {
     print OUT "<h2>Fragmentation Evaluation</h2>\n";
@@ -415,6 +458,14 @@ my %summaryGraphMetaData = ( 'avgKDiv' =>
   print OUT "  <script type=\"text/javascript\">\n";
   print OUT "     google.charts.load('current', {'packages':['corechart']});\n";
   print OUT "     google.charts.setOnLoadCallback(drawChart);\n";
+  print OUT "     function displaySVG( id ) {\n";
+  print OUT "         var e = document.getElementById(id);\n";
+  print OUT "         var f = e.getElementsByTagName('svg')[0].outerHTML;\n";
+  #print OUT "         var data = new DataTransfer();\n";
+  #print OUT "         data.items.add(f,'text/plain');\n";
+  #print OUT "        navigator.clipboard.write(data);\n";
+  print OUT "         navigator.clipboard.writeText(f);\n";
+  print OUT "     }\n";
   print OUT "     function drawChart() {\n";
   my @divs = ();
   my $id = 0;
@@ -431,13 +482,16 @@ my %summaryGraphMetaData = ( 'avgKDiv' =>
     for ( my $i = 0; $i <= $#{$tables{'summary'}->{$characteristic}->{'header'}}; $i++ ) {
       my $heading = $tables{'summary'}->{$characteristic}->{'header'}->[$i];
       my $hdrHash;
-      #next if ( !defined $useStats && $heading =~ /_stdev/ );
-      if ( $heading =~ /_stdev/ ) {
-        $hdrHash = { 'label' => $heading, 'id' => "id" . $id,  'type' => 'number', 'role' => 'interval'};
+      next if ( $heading =~ /_stdev/ );
+      # Strip off "_mean" from the labels
+      my $methodLabel = $heading;
+      $methodLabel =~ s/_mean//g;
+      if ( $heading =~ /_stderr/ ) {
+        $hdrHash = { 'label' => $methodLabel, 'id' => "id" . $id,  'type' => 'number', 'role' => 'interval'};
       }elsif ( $heading =~ /frag/ ) {
-        $hdrHash = { 'label' => $heading, 'id' => "id" . $id};
+        $hdrHash = { 'label' => $methodLabel, 'id' => "id" . $id};
       }else {
-        $hdrHash = { 'label' => $heading, 'id' => "id" . $id,  'type' => 'number'};
+        $hdrHash = { 'label' => $methodLabel, 'id' => "id" . $id,  'type' => 'number'};
       }
       $id++;
       push @data, $hdrHash;
@@ -450,7 +504,7 @@ my %summaryGraphMetaData = ( 'avgKDiv' =>
       @data = ();
       for ( my $i = 0; $i <= $#{$tables{'summary'}->{$characteristic}->{'header'}}; $i++ ) {
         my $heading = $tables{'summary'}->{$characteristic}->{'header'}->[$i];
-        #next if ( !defined $useStats && $heading =~ /_stdev/ );
+        next if ( $heading =~ /_stdev/ );
 
         # Convert GPUT to average divergence
         my $val = $row->[$i];
@@ -470,7 +524,11 @@ my %summaryGraphMetaData = ( 'avgKDiv' =>
 
     my $graphDir = 1;
     $graphDir = -1 if ( $xParamName eq "frag" );
-    my ($hashID, $jStr, $hStr) = generateChart($metaData->{'title'},$metaData->{'xAxis'}, $metaData->{'yAxis'}, $dataTable, $graphDir, \@colors);
+    my $vMax = "";
+    $vMax = $metaData->{'vMax'} if ( exists $metaData->{'vMax'} );
+    my $xTicks = "";
+    $xTicks = $metaData->{'xTicks'} if ( exists $metaData->{'xTicks'} );
+    my ($hashID, $jStr, $hStr) = generateChart($metaData->{'title'},$metaData->{'xAxis'}, $metaData->{'yAxis'}, $dataTable, $graphDir, \@colors, $vMax, $xTicks);
     print OUT "        $jStr\n";
     print OUT "     var chart_$hashID = new google.visualization.LineChart(document.getElementById('div_$hashID'));\n";
     print OUT "     chart_$hashID.draw(data_$hashID,options_$hashID);\n\n";
@@ -613,6 +671,8 @@ sub generateChart {
   my $dataTable = shift;
   my $xDirection = shift;
   my $colors = shift;
+  my $vMax = shift;
+  my $xTicks = shift;
 
   my $drawChartJSON = "";
   my $bodyStr = "";
@@ -626,28 +686,53 @@ sub generateChart {
   #my $data = Dumper($dataTable);
   #$data =~ s/^\$VAR1 = //;
   #$data =~ s/(.*);$/$1/g;
+  my $labelFontSize = 22;
   my $data = encode_json($dataTable);
   $drawChartJSON .= $data;
   $drawChartJSON .= ");\n";
   $drawChartJSON .= "var options_$hashID = {\n";
   $drawChartJSON .= "  title: \'$title\',\n";
-  $drawChartJSON .= "  width: 1200,\n";
+  #$drawChartJSON .= "  width: 1200,\n";
+  #$drawChartJSON .= "  height: 500,\n";
+  $drawChartJSON .= "  width: 1000,\n";
   $drawChartJSON .= "  height: 500,\n";
   $drawChartJSON .= "  intervals: { 'style':'area' },\n";
-  $drawChartJSON .= "  titleTextStyle: { color: '#808080', fontSize: 20, bold: false },\n";
-  $drawChartJSON .= "  legend: { textStyle: { color: '#505050', fontSize: 12, italic: false }},\n";
+  $drawChartJSON .= "  titleTextStyle: { color: '#808080', fontSize: 28, bold: false },\n";
+  # Legend on bottom....bad 
+  #$drawChartJSON .= "  legend: { position: 'bottom', alignment: 'end', textStyle: { color: '#505050', fontSize: $labelFontSize, italic: false }},\n";
+  # Normal
+  #$drawChartJSON .= "  legend: { textStyle: { color: '#505050', fontSize: $labelFontSize, italic: false }},\n";
+  # No legend
+  $drawChartJSON .= "  legend: { position: 'none' },\n";
+  $drawChartJSON .= "  hAxis: { title: \'$xTitle\', textStyle: { fontSize: $labelFontSize }, titleTextStyle: { color: '#505050', fontSize: $labelFontSize, italic: false }";
   if ( $xDirection == -1 ) {
-    $drawChartJSON .= "  hAxis: { title: \'$xTitle\', textStyle: { fontSize: 12 }, titleTextStyle: { color: '#505050', fontSize: 12, italic: false }, direction: -1 },\n";
-  }else {
-    $drawChartJSON .= "  hAxis: { title: \'$xTitle\', textStyle: { fontSize: 12 }, titleTextStyle: { color: '#505050', fontSize: 12, italic: false }},\n";
+    $drawChartJSON .= ", direction: -1";
   }
-  $drawChartJSON .= "  vAxis: { title: \'$yTitle\', textStyle: { fontSize: 12 }, titleTextStyle: { color: '#505050', fontSize: 12, italic: false } },\n";
+  if ( $xTicks ne "" ) {
+    $drawChartJSON .= ", ticks: $xTicks";
+  }
+  $drawChartJSON .= "},\n";
+  if ( $vMax ne "" ) {
+    $drawChartJSON .= "  vAxis: { title: \'$yTitle\', textStyle: { fontSize: $labelFontSize }, titleTextStyle: { color: '#505050', fontSize: $labelFontSize, italic: false }, viewWindow: { max: $vMax} },\n";
+  } else { 
+    $drawChartJSON .= "  vAxis: { title: \'$yTitle\', textStyle: { fontSize: $labelFontSize }, titleTextStyle: { color: '#505050', fontSize: $labelFontSize, italic: false } },\n";
+  }
   # 
   # colors: ['#AB0D06', '#007329'],... add more than enough
   $drawChartJSON .= "    colors: " . encode_json($colors) . "\n";
   $drawChartJSON .= "};\n";
 
+# TODO...add function for button press.
+#
+#function allReady() {
+#    var e = document.getElementById('visualization');
+#        // svg elements don't have inner/outerHTML properties, so use the parents
+#            alert(e.getElementsByTagName('svg')[0].outerHTML);
+#            }
+
+# TODO: Add button
   $bodyStr .= "<div id=\"div_$hashID\"></div>";
+  $bodyStr .= "<button onClick=\"displaySVG('div_$hashID')\">SVG</button>";
 
   return ($hashID, $drawChartJSON, $bodyStr);
 }

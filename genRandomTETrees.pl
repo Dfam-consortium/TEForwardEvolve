@@ -113,6 +113,8 @@ if ( $options{'dna'} ) {
   #
   # DNA Transposon
   #   - Many generations of non-competent copies from a single live sequence, bush-like phylogeny
+  #   - The parameter "totalGenerations" controls the amount of time post-extinction represented
+  #     in the extant sequence branch lengths.
   #
   my $extantNodeGoal = 100;
   my $avgGenerationsBetweenParents = 10;
@@ -127,6 +129,7 @@ if ( $options{'dna'} ) {
   my @nodes;
   push @nodes, $root;
   
+  # Simulate the active birth of sequences
   my $idx = 1;
   while ( $numExtantNodes < $extantNodeGoal ) {
     my $parent;
@@ -151,6 +154,7 @@ if ( $options{'dna'} ) {
     push @nodes, $child;
   }
   
+  # Adjust extant branch lengths to reach the target totalGenerations.
   my $changes;
   do { 
     $changes = 0;
@@ -197,7 +201,8 @@ if ( $options{'dna'} ) {
   # LINE-Like Phylogeny
   #
   my $totalExtantNodes = 100;
-  my $avgChildrenPerSeq = 5; # must be > 2
+  # Produce a distribution of children between 2-#
+  my $avgChildrenPerSeq = 5; # must be > 2 
   my $avgGenerationsBetweenParents = 4.7;
   my $totalGenerations =  100;
   
@@ -216,18 +221,20 @@ if ( $options{'dna'} ) {
          $numChildren = 3;
          $lastFlag = 1;
        }
-  print "num children = $numChildren\n";
+       print "num children = $numChildren\n";
        if ( $numChildren ) {
          my $nextParent;
          for ( my $i = 0; $i < $numChildren; $i++ ) {
            my $node;
            if ( $i == 0 && $totalExtantNodes - ( $numNodes + $numChildren) >= 2 ) 
            {
+             # New parent
              $numParentGens = int(rand($avgGenerationsBetweenParents+1));
              $node = { 'VALUE' => "node-$numNodes:" . ( $numParentGens ) . ".0",
                        'CHILDREN' => [] };
              $nextParent = $node;
            }else { 
+             # Extant child....scale to total generation length
              $node = { 'VALUE' => "node-$numNodes:" . ( $totalGenerations - $sumGenerations ) . ".0",
                        'CHILDREN' => [] };
              $numNodes++;
