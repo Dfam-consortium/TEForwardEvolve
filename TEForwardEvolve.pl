@@ -524,8 +524,8 @@ foreach my $node ( @globalNodeList ) {
 close OUT;
  
 # TEST
-&DFS_avgSubs($tref);
-print "Average % Sub Per Extant = " . ($extantSubSum/$extantCnt) . "\n";
+#&DFS_avgSubs($tref);
+#print "Average % Sub Per Extant = " . ($extantSubSum/$extantCnt) . "\n";
 
 # Print final stats
 my $subCnt = 0;
@@ -562,13 +562,6 @@ exit;
 # evolveBranch()
 #
 #  Use:  my $retVal = evolveBranch( $node, $parent );
-#
-#    $parameter1:   A generic scalar parameter
-#    $parameter2:   A generic scalar parameter
-#
-#  $retVal contains the scalar result of this subroutine.  This
-#  is a public function and this documentation will print out
-#  when perldoc is run on this file.
 #
 ##-------------------------------------------------------------------------##·
 sub evolveBranch{
@@ -792,7 +785,6 @@ sub chooseIndelLength{
 #  position is picked independent of size ) are equivalent to a deletion
 #  of size (sequence_length - start_position).
 #  
-#
 #    $newNodeSeq         :
 #    $new_total_sub_rate :
 #    $del_base_pos       :
@@ -1067,7 +1059,7 @@ sub generateInsertion{
 #
 #  Use:  my ($newNodeSeq, $new_total_sub_rate, $sub_base_pos,
 #            $sub_align_pos, $prev_tri, $new_tri ) = 
-#                      generateInsertion( $nodeSeq, $total_sub_rate, 
+#                      generateSubstitution( $nodeSeq, $total_sub_rate, 
 #                                        $verbosity );
 #
 #    $nodeSeq         :    The current aligned sequence for the node
