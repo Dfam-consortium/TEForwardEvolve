@@ -17,7 +17,7 @@ genSimulations.nf : Run TEFowardEvolve with a single tree in replicate
      --varyFragSize         : Vary fragment size rather than gput scales [ default: off ]
      --gput <#>             : If varying fragment sizes this sets the fixed gput [default: 100]
      --replicates <#>       : Number of replicates to generate [default 10]
-     --cluster <name>       : Either "local", "quanah", "hrothgar" or "griz"
+     --cluster <name>       : Either "local", "quanah", "griz"
 
  Example:
 
@@ -75,16 +75,15 @@ if ( params.cluster == "local" ) {
   thisQueue = ""
   thisOptions = ""
   thisScratch = false
-}else if ( params.cluster == "quanah" || params.cluster == "hrothgar" ){
+}else if ( params.cluster == "quanah" ){
   proc = 12
-  thisExecutor = "sge"
-  thisQueue = "omni"
+  thisExecutor = "slurm"
+  thisQueue = "nocona"
   thisOptions = "-pe sm ${proc} -P quanah -S /bin/bash"
   thisScratch = false
 }else if ( params.cluster == "griz" ) {
   proc = 12
   thisExecutor = "slurm"
-  //thisQueue = "wheeler_lab_small_cpu"
   thisQueue = "wheeler_lab_large_cpu"
   thisOptions = "--tasks=1 --cpus-per-task=${proc}"
   thisScratch = "/state/partition1"
@@ -131,8 +130,6 @@ if ( params.varyFragSize ) {
 //setChan = Channel.from( "test", "train" )
 //scaleChan = Channel.from(100, 250)
 //replicateChan = Channel.of(1..2)
-
-
 
 
 process runTEForwardEvolveScales {

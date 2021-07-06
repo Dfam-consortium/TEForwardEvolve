@@ -144,7 +144,10 @@ process generateSamples {
 
   script:
   """
-  # A hack to get the same sample sets over multiple runs of this Nextflow script:
+  # 
+  # Generate samples of various sizes.  
+  #   The random seed 1608835988 produced the paper results
+  #
   ${workflow.projectDir}/sampleFromFA.pl "100,150,200,250,300,350,400,450,500,1000" ${seqFile} 1608835988
   """
 }
