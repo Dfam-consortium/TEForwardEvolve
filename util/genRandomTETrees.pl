@@ -1,13 +1,12 @@
 #!/usr/local/bin/perl -w
 ##---------------------------------------------------------------------------##
 ##  File:
-##      @(#) program_name
+##      @(#) genRandomTETrees.pl
 ##  Author:
 ##      Robert M. Hubley   rhubley@systemsbiology.org
 ##  Description:
-##      This is a template for generic perl scripts.  It
-##      includes an area for POD documentation (ie. perldoc this-file )
-##      and a generic way to store startup parameters in a file
+##      Simulate random trees for LINE and DNA Transposon
+##      phylogenies.
 ##
 #******************************************************************************
 #*  This software is provided ``AS IS'' and any express or implied            *
@@ -21,16 +20,15 @@
 #*  whether in contract, strict liability, or tort (including negligence      *
 #*  or otherwise) arising in any way out of the use of this software, even    *
 #*  if advised of the possibility of such damage.                             *
-#*                                                                            *
 #******************************************************************************
 #
 =head1 NAME
 
-program_name - some description
+genRandomTETrees - simulate random trees for LINE and DNA Transpoons phylogenies
 
 =head1 SYNOPSIS
 
-  program_name [-version]
+  genRandomTETrees.pl [-version] [-dna | -line]
 
 =head1 DESCRIPTION
 
@@ -48,7 +46,7 @@ Displays the version of the program
 
 =head1 COPYRIGHT
 
-Copyright 2020 Robert Hubley, Institute for Systems Biology
+Copyright 2021 Robert Hubley, Institute for Systems Biology
 
 =head1 LICENSE
 
@@ -82,6 +80,7 @@ my $DEBUG = 0;
 #
 my @getopt_args = (
     '-version', # print out the version and exit
+    '-seed=i',
     '-dna',
     '-line'
 );
@@ -108,6 +107,15 @@ unless ( $options{'dna'} || $options{'line'} ) {
 }
 
 my $nw;
+
+# For reproducibility allow setting the random number seed
+my $seed = time;
+$seed = $options{'seed'} if ( exists $options{'seed'} );
+srand( $seed );
+print "#\n";
+print "# genRandomeTETrees.pl\n";
+print "#\n";
+print "Random Number Generator Seed: $seed\n";
 
 if ( $options{'dna'} ) {
   #

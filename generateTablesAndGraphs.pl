@@ -3,7 +3,6 @@ use strict;
 use Data::Dumper;
 use JSON;
 
-
 my $evalDir = $ARGV[0];
 
 # Files:
@@ -113,6 +112,7 @@ my $low;
 # Determine Min/Max
 foreach my $xval ( keys(%{$data{'1'}}) ) {
   foreach my $replicate ( keys(%data) ) {
+    # This is the score of the refmsa consensus vs itself ( "vs_self" )
     if ( ! defined $high || $high < $data{$replicate}->{$xval}->{'refmsa'}->{'high_score'} ) {
       $high = $data{$replicate}->{$xval}->{'refmsa'}->{'high_score'};
     }
@@ -136,9 +136,11 @@ foreach my $xval ( keys(%{$data{'1'}}) ) {
        if ( exists $data{$replicate}->{$xval}->{$method}->{'vs_refmsacons'} ) {
          my $val = $data{$replicate}->{$xval}->{$method}->{'vs_refmsacons'};
          # For fraction it's:
-         my $newVal = ($val - $low) / $spread;
+         #my $newVal = ($val - $low) / $spread;
          # For score distance 
          #my $newVal = $high - $val;
+         # For new Cr~Cp - Cr~Cr / Cr~Cr its:
+         my $newVal = ($high-$val)/$high;
          #print "method=$method High = $high val = $val, newVal = $newVal\n";
          $data{$replicate}->{$xval}->{$method}->{'vs_refmsacons'} = $newVal;
          if ( $newVal < 0 ) { 
@@ -301,54 +303,55 @@ my %methodColors = (
 
 my %summaryGraphMetaData = ( 'avgKDiv' => 
                                  { 'title' => 'Reference MSA Average Kimura Divergence',
-                                   'xAxis' => 'Generations Per Unit Time',
-                                   'yAxis' => 'Average Kimura Divergence',
-                                   'vMax' => 1.0 },
+                                   'hAxis_title' => 'Generations Per Unit Time',
+                                   'vAxis_title' => 'Average Kimura Divergence',
+                                   'vAxis_viewWindow_max' => 1.0 },
                              'AMA_similarity_score' => 
                                  { 'title' => 'AMA Similarity Score',
-                                   'xAxis' => $xAxis,
-                                   'yAxis' => 'Similarity Score',
-                                   'vMax'  => 1.0,
-                                   'xTicks' => $xTicks },
+                                   'hAxis_title' => $xAxis,
+                                   'vAxis_title' => 'Similarity Score',
+                                   'vAxis_viewWindow_max'  => 1.0,
+                                   'hAxis_ticks' => $xTicks },
                              'AMA_predictive_value' => 
                                  { 'title' => 'AMA Predictive Value [modeler score]',
-                                   'xAxis' => $xAxis,
-                                   'yAxis' => 'Predictive Value' ,
-                                   'vMax'  => 1.0,
-                                   'xTicks' => $xTicks },
+                                   'hAxis_title' => $xAxis,
+                                   'vAxis_title' => 'Predictive Value' ,
+                                   'vAxis_viewWindow_max'  => 1.0,
+                                   'hAxis_ticks' => $xTicks },
                              'QScore_Q' =>
                                  { 'title' => 'QScore Developer Score [sum of pairs]',
-                                   'xAxis' => $xAxis,
-                                   'yAxis' => 'Average Developer Score',
-                                   'vMax'  => 1.0,
-                                   'xTicks' => $xTicks },
+                                   'hAxis_title' => $xAxis,
+                                   'vAxis_title' => 'Average Developer Score',
+                                   'vAxis_viewWindow_max'  => 1.0,
+                                   'hAxis_ticks' => $xTicks },
                              'QScore_TC' =>
                                  { 'title' => 'QScore Total Column Score',
-                                   'xAxis' => $xAxis,
-                                   'yAxis' => 'Total Column Score',
-                                   'vMax'  => 1.0,
-                                   'xTicks' => $xTicks },
+                                   'hAxis_title' => $xAxis,
+                                   'vAxis_title' => 'Total Column Score',
+                                   'vAxis_viewWindow_max'  => 1.0,
+                                   'hAxis_ticks' => $xTicks },
                              'cons.cm_score' =>
                                  { 'title' => 'Crossmatch - Predicted Consensus vs Test Sequences',
-                                   'xAxis' => $xAxis,
-                                   'yAxis' => 'Total Complexity Adjusted Score',
-                                   'xTicks' => $xTicks },
+                                   'hAxis_title' => $xAxis,
+                                   'vAxis_title' => 'Total Complexity Adjusted Score',
+                                   'hAxis_ticks' => $xTicks },
                              'cons.nhmmer_score' =>
                                  { 'title' => 'Nhmmer - Predicted Consensus vs Test Sequences',
-                                   'xAxis' => $xAxis,
-                                   'yAxis' => 'Total Bit Score',
-                                   'xTicks' => $xTicks },
+                                   'hAxis_title' => $xAxis,
+                                   'vAxis_title' => 'Total Bit Score',
+                                   'hAxis_ticks' => $xTicks },
                              'hmm.nhmmer_score' => 
                                  { 'title' => 'Nhmmer - Predicted HMM vs Test Sequences',
-                                   'xAxis' => $xAxis,
-                                   'yAxis' => 'Total Bit Score',
-                                   'xTicks' => $xTicks },
+                                   'hAxis_title' => $xAxis,
+                                   'vAxis_title' => 'Total Bit Score',
+                                   'hAxis_ticks' => $xTicks },
                              'vs_refmsacons' =>
                                  { 'title' => 'Derived Consensus Accuracy',
-                                   'xAxis' => $xAxis,
-                                   'yAxis' => 'Ideal NW Score Fraction',
-                                   'vMax'  => 1.0,
-                                   'xTicks' => $xTicks },
+                                   'hAxis_title' => $xAxis,
+                                   'vAxis_title' => 'Fraction of Optimal Alignment Score Lost',
+                                   'vAxis_direction'  => -1,
+                                   'hAxis_ticks' => $xTicks },
+                                   #'vAxis_viewWindow_max'  => 1.0,
                            );
 
   # Print summary graphs ( w/o stdev )
@@ -420,13 +423,15 @@ my %summaryGraphMetaData = ( 'avgKDiv' =>
       push @{$dataTable},[@data];
     }
 
-    my $graphDir = 1;
-    $graphDir = -1 if ( $xParamName eq "frag" );
-    my $vMax = "";
-    $vMax = $metaData->{'vMax'} if ( exists $metaData->{'vMax'} );
-    my $xTicks = "";
-    $xTicks = $metaData->{'xTicks'} if ( exists $metaData->{'xTicks'} );
-    my ($hashID, $jStr, $hStr) = generateChart($metaData->{'title'},$metaData->{'xAxis'}, $metaData->{'yAxis'}, $dataTable, $graphDir, \@colors, $vMax, $xTicks);
+    #my $graphDir = 1;
+    #$graphDir = -1 if ( $xParamName eq "frag" );
+    $metaData->{'hAxis_direction'} = -1 if ( $xParamName eq "frag" );
+    #my $vMax = "";
+    #$vMax = $metaData->{'vMax'} if ( exists $metaData->{'vMax'} );
+    #my $xTicks = "";
+    #$xTicks = $metaData->{'xTicks'} if ( exists $metaData->{'xTicks'} );
+    #my ($hashID, $jStr, $hStr) = generateChart($metaData->{'title'},$metaData->{'xAxis'}, $metaData->{'yAxis'}, $dataTable, $graphDir, \@colors, $vMax, $xTicks);
+    my ($hashID, $jStr, $hStr) = &generateChart($metaData, $dataTable, \@colors);
     print OUT "        $jStr\n";
     print OUT "     var chart_$hashID = new google.visualization.LineChart(document.getElementById('div_$hashID'));\n";
     print OUT "     chart_$hashID.draw(data_$hashID,options_$hashID);\n\n";
@@ -522,13 +527,15 @@ my %summaryGraphMetaData = ( 'avgKDiv' =>
       push @{$dataTable},[@data];
     }
 
-    my $graphDir = 1;
-    $graphDir = -1 if ( $xParamName eq "frag" );
-    my $vMax = "";
-    $vMax = $metaData->{'vMax'} if ( exists $metaData->{'vMax'} );
-    my $xTicks = "";
-    $xTicks = $metaData->{'xTicks'} if ( exists $metaData->{'xTicks'} );
-    my ($hashID, $jStr, $hStr) = generateChart($metaData->{'title'},$metaData->{'xAxis'}, $metaData->{'yAxis'}, $dataTable, $graphDir, \@colors, $vMax, $xTicks);
+    #my $graphDir = 1;
+    #$graphDir = -1 if ( $xParamName eq "frag" );
+    $metaData->{'hAxis_direction'} = -1 if ( $xParamName eq "frag" );
+    #my $vMax = "";
+    #$vMax = $metaData->{'vMax'} if ( exists $metaData->{'vMax'} );
+    #my $xTicks = "";
+    #$xTicks = $metaData->{'xTicks'} if ( exists $metaData->{'xTicks'} );
+    #my ($hashID, $jStr, $hStr) = generateChart($metaData->{'title'},$metaData->{'xAxis'}, $metaData->{'yAxis'}, $dataTable, $graphDir, \@colors, $vMax, $xTicks);
+    my ($hashID, $jStr, $hStr) = &generateChart($metaData, $dataTable, \@colors);
     print OUT "        $jStr\n";
     print OUT "     var chart_$hashID = new google.visualization.LineChart(document.getElementById('div_$hashID'));\n";
     print OUT "     chart_$hashID.draw(data_$hashID,options_$hashID);\n\n";
@@ -665,15 +672,15 @@ sub generateMSAViz {
 
 
 sub generateChart {
-  my $title = shift;
-  my $xTitle = shift;
-  my $yTitle = shift;
+#  my $xTitle = shift;
+#  my $yTitle = shift;
+  my $props = shift;
   my $dataTable = shift;
-  my $xDirection = shift;
+#  my $xDirection = shift;
   my $colors = shift;
-  my $vMax = shift;
-  my $xTicks = shift;
-
+#  my $vMax = shift;
+#  my $xTicks = shift;
+ 
   my $drawChartJSON = "";
   my $bodyStr = "";
 
@@ -691,7 +698,9 @@ sub generateChart {
   $drawChartJSON .= $data;
   $drawChartJSON .= ");\n";
   $drawChartJSON .= "var options_$hashID = {\n";
-  $drawChartJSON .= "  title: \'$title\',\n";
+  if ( exists $props->{'title'} ) { 
+    $drawChartJSON .= "  title: \'" . $props->{'title'} . "\',\n";
+  }
   #$drawChartJSON .= "  width: 1200,\n";
   #$drawChartJSON .= "  height: 500,\n";
   $drawChartJSON .= "  width: 1000,\n";
@@ -704,22 +713,38 @@ sub generateChart {
   #$drawChartJSON .= "  legend: { textStyle: { color: '#505050', fontSize: $labelFontSize, italic: false }},\n";
   # No legend
   $drawChartJSON .= "  legend: { position: 'none' },\n";
-  $drawChartJSON .= "  hAxis: { title: \'$xTitle\', textStyle: { fontSize: $labelFontSize }, titleTextStyle: { color: '#505050', fontSize: $labelFontSize, italic: false }";
-  if ( $xDirection == -1 ) {
-    $drawChartJSON .= ", direction: -1";
+  $drawChartJSON .= "  hAxis: {";
+  if ( exists $props->{'hAxis_title'} ) { 
+    $drawChartJSON .= " title: \'" . $props->{'hAxis_title'} . "\',";
   }
-  if ( $xTicks ne "" ) {
-    $drawChartJSON .= ", ticks: $xTicks";
+  $drawChartJSON .= "textStyle: { fontSize: $labelFontSize }, titleTextStyle: { color: '#505050', fontSize: $labelFontSize, italic: false }";
+  if ( exists $props->{'hAxis_direction'} ) {
+    $drawChartJSON .= ", direction: " . $props->{'hAxis_direction'};
+  }
+  if ( exists $props->{'hAxis_ticks'} ) {
+    $drawChartJSON .= ", ticks: " . $props->{'hAxis_ticks'};
   }
   $drawChartJSON .= "},\n";
-  if ( $vMax ne "" ) {
-    $drawChartJSON .= "  vAxis: { title: \'$yTitle\', textStyle: { fontSize: $labelFontSize }, titleTextStyle: { color: '#505050', fontSize: $labelFontSize, italic: false }, viewWindow: { max: $vMax} },\n";
-  } else { 
-    $drawChartJSON .= "  vAxis: { title: \'$yTitle\', textStyle: { fontSize: $labelFontSize }, titleTextStyle: { color: '#505050', fontSize: $labelFontSize, italic: false } },\n";
+  $drawChartJSON .= "vAxis: {";
+  if ( exists $props->{'vAxis_title'} ) { 
+    $drawChartJSON .= " title: \'" . $props->{'vAxis_title'} . "\',";
   }
+  $drawChartJSON .= "textStyle: { fontSize: $labelFontSize }, titleTextStyle: { color: '#505050', fontSize: $labelFontSize, italic: false }";
+  if ( exists $props->{'vAxis_direction'} ) {
+    $drawChartJSON .= ", direction: " . $props->{'vAxis_direction'};
+  }
+  if ( exists $props->{'vAxis_viewWindow_max'} ) {
+    $drawChartJSON .= ", viewWindow: { max: " . $props->{'vAxis_viewWindow_max'} . "}";
+  }
+  $drawChartJSON .= "}\n";
+  #if ( $vMax ne "" ) {
+  #  $drawChartJSON .= "  vAxis: { title: \'$yTitle\', textStyle: { fontSize: $labelFontSize }, titleTextStyle: { color: '#505050', fontSize: $labelFontSize, italic: false }, viewWindow: { max: $vMax} },\n";
+  #} else { 
+  #  $drawChartJSON .= "  vAxis: { title: \'$yTitle\', textStyle: { fontSize: $labelFontSize }, titleTextStyle: { color: '#505050', fontSize: $labelFontSize, italic: false } },\n";
+  #}
   # 
   # colors: ['#AB0D06', '#007329'],... add more than enough
-  $drawChartJSON .= "    colors: " . encode_json($colors) . "\n";
+  $drawChartJSON .= ", colors: " . encode_json($colors) . "\n";
   $drawChartJSON .= "};\n";
 
 # TODO...add function for button press.
