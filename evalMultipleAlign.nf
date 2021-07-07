@@ -63,20 +63,46 @@ runQScore = true
 outputDir = params.outputDir
 
 // Default software dependencies ( see localizations in cluster sections )
+
+// SPS calculation through qscore program
 qscoreDir = "/home/rhubley/projects/DNAMultipleAlignment/qscore"
-phrapDir = "/usr/local/phrap"
-hmmerDir = "/usr/local/hmmer/bin"
-mafftDir = "/usr/local/mafft/bin"
-dialignDir = "/usr/local/dialign-tx-1.0.2"
-kalignDir = "/usr/local/kalign2"
-clustalW2Dir = "/usr/local/bin"
-clustalOmegaDir = "/u1/local/clustal-omega-1.2.4-binary"
-opalDir = "/u1/local/opal_2.1.3"
-fsaDir = "/usr/local/fsa/bin"
+// SPS calcuation throuh dart AMA program
 dartDir = "/home/rhubley/projects/DNAMultipleAlignment/dart/bin"
+// SPS calcuation through fastSP package ( removed )
+//fastSPDir = "/home/rhubley/projects/DNAMultipleAlignment/FastSP"
+// Phil Greens crossmatch program - for consensus model eval
+phrapDir = "/usr/local/phrap"
+// Eddy/Wheeler nhmmer program - for HMM model eval
+hmmerDir = "/usr/local/hmmer/bin"
+// 
+// Aligners
+//
+// MAFFT aligner [ https://mafft.cbrc.jp/alignment/software/mafft-7.481-without-extensions-src.tgz ]
+mafftDir = "/usr/local/mafft/bin"
+// DIALIGN aligner [ http://dialign-tx.gobics.de/DIALIGN-TX_1.0.2.tar.gz ]
+//    CPPFLAGS=-O3 -funroll-loops  -mfpmath=sse -msse  -mmmx
+dialignDir = "/usr/local/dialign-tx-1.0.2"
+// Kalign Aligner 2.0.4 [ http://msa.sbc.su.se/downloads/kalign/current.tar.gz ]
+//    mkdir kalign-2.0.4; cd kalign-2.0.4; tar zxvf ../current.tar.gz
+kalignDir = "/usr/local/kalign2"
+// --unused--
+clustalW2Dir = "/usr/local/bin"
+// Clustal Omega 1.2.4 [ http://www.clustal.org/omega/clustalo-1.2.4-Ubuntu-x86_64 ]
+//    mkdir clustal-omega-1.2.4; mv clustalo-1.2.4-Ubuntu-x86_64 clustal-omega-1.2.4/clustalo
+//    chmod 755 clustal-omega-1.2.4/clustalo
+clustalOmegaDir = "/u1/local/clustal-omega-1.2.4-binary"
+// --unused-- Opal Aligner 2.1.3 [ http://opal.cs.arizona.edu/old_distros/opal_2.1.3.tgz ]
+opalDir = "/u1/local/opal_2.1.3"
+// FSA Aligner 1.15.9 [ https://sourceforge.net/projects/fsa/files/fsa-1.15.9.tar.gz/download ]
+//     mv download fsa-1.15.9.tar.gz; tar zxvf fsa-1.15.9.tar.gz; cd fsa-1.15.9; ./configure; make
+//     *binaries are in fsa-1.15.9/src/main*
+fsaDir = "/usr/local/fsa/bin"
+// Muscle 3.8.31 [ https://www.drive5.com/muscle/downloads3.8.31/muscle3.8.31_i86linux64.tar.gz ]
+//     tar zxvf muscle3.8.31_i86linux64.tar.gz; mkdir muscle-3.8.31; mv muscle3.8.31_i86linux64 muscle-3.8.31/muscle
+//     chmod 755 muscle-3.8.31/muscle
 muscleDir = "/usr/local/bin"
-repeatmodelerDir = "/home/rhubley/projects/RepeatModeler"
-fastSPDir = "/home/rhubley/projects/DNAMultipleAlignment/FastSP"
+// Refiner alignment through RepeatModeler package [ https://www.repeatmasker.org/RepeatModeler/RepeatModeler-2.0.2a.tar.gz ]
+repeatmodelerDir = "/usr/local/RepeatModeler-2.0.2a"
 
 //FOR DEBUGGING...limit the files run
 //Channel.fromFilePairs( params.benchmarkDir + "/rep-1/gput100-{train-seqs,train-refmsa,test-seqs}.fa", size: 3, flat:true )
@@ -713,21 +739,21 @@ process runRefiner {
   # Run refiner and generate a filename like gput100-train-refiner.fa for output
   ${repeatmodelerDir}/Refiner ${referenceSeqFile} >& ${simPrefix}-refiner.log
   ## eval Auto Run Blocker
-  ${repeatmodelerDir}/util/Linup ${referenceSeqFile}.refiner.stk > alistart
-  ${repeatmodelerDir}/util/protocol/AutoRunBlocker.pl -l alistart -w 7 -mc 4 -mr 2 > cons
-  ${repeatmodelerDir}/util/alignAndCallConsensus.pl -c cons -e ${referenceSeqFile}
-  ${repeatmodelerDir}/util/protocol/AutoRunBlocker.pl -l alistart -w 15 -mc 4 -mr 2 > cons
-  ${repeatmodelerDir}/util/alignAndCallConsensus.pl -c cons -e ${referenceSeqFile}
-  ${repeatmodelerDir}/util/protocol/AutoRunBlocker.pl -l alistart -w 24 -mc 4 -mr 2 > cons
-  ${repeatmodelerDir}/util/alignAndCallConsensus.pl -c cons -e ${referenceSeqFile}
-  ${repeatmodelerDir}/util/protocol/AutoRunBlocker.pl -l alistart -w 5 -mc 4 -mr 2 > cons
-  ${repeatmodelerDir}/util/alignAndCallConsensus.pl -re -c cons -e ${referenceSeqFile}
-  ${repeatmodelerDir}/util/Linup -stockholm -name ${referenceMSAFile.baseName} rep.out > ${simPrefix}-refiner.stk
-  mv cons ${simPrefix}-refiner.cons.fa
+  #${repeatmodelerDir}/util/Linup ${referenceSeqFile}.refiner.stk > alistart
+  #${repeatmodelerDir}/util/AutoRunBlocker.pl -l alistart -w 7 -mc 4 -mr 2 > cons
+  #${repeatmodelerDir}/util/alignAndCallConsensus.pl -c cons -e ${referenceSeqFile}
+  #${repeatmodelerDir}/util/AutoRunBlocker.pl -l alistart -w 15 -mc 4 -mr 2 > cons
+  #${repeatmodelerDir}/util/alignAndCallConsensus.pl -c cons -e ${referenceSeqFile}
+  #${repeatmodelerDir}/util/AutoRunBlocker.pl -l alistart -w 24 -mc 4 -mr 2 > cons
+  #${repeatmodelerDir}/util/alignAndCallConsensus.pl -c cons -e ${referenceSeqFile}
+  #${repeatmodelerDir}/util/AutoRunBlocker.pl -l alistart -w 5 -mc 4 -mr 2 > cons
+  #${repeatmodelerDir}/util/alignAndCallConsensus.pl -re -c cons -e ${referenceSeqFile}
+  #${repeatmodelerDir}/util/Linup -stockholm -name ${referenceMSAFile.baseName} rep.out > ${simPrefix}-refiner.stk
+  #mv cons ${simPrefix}-refiner.cons.fa
   ## End Auto Run Blocker
   # Generates *.refiner.stk and *.refiner_cons ... rename to final files
-  #mv ${referenceSeqFile}.refiner.stk ${simPrefix}-refiner.stk
-  #mv ${referenceSeqFile}.refiner_cons ${simPrefix}-refiner.cons.fa
+  mv ${referenceSeqFile}.refiner.stk ${simPrefix}-refiner.stk
+  mv ${referenceSeqFile}.refiner_cons ${simPrefix}-refiner.cons.fa
   ${repeatmodelerDir}/util/Linup -msa ${simPrefix}-refiner.stk > ${simPrefix}-refiner.fa
   ${workflow.projectDir}/util/stkToQscoreMSA.pl ${referenceSeqFile} ${simPrefix}-refiner.stk > ${simPrefix}-refiner-padded.fa
   ${workflow.projectDir}/util/validateEstimatedMSA.pl ${referenceMSAFile} ${simPrefix}-refiner-padded.fa
