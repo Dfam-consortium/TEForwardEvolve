@@ -1,4 +1,4 @@
-#!/usr/local/bin/perl
+#!/usr/bin/perl
 use strict;
 
 open FA,"<$ARGV[0]" or die;

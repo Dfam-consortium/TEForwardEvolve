@@ -18,6 +18,10 @@ evalMultipleAlignment.nf : Evaluate multiple alignment programs on sequence sets
      --clustalo           : Run ClustalOmega [optional]
      --opal               : Run Opal [optional]
      --mafft              : Run Mafft [optional]
+     --cmConsEval         : Run crossmatch consensus evaluation [optional]
+     --nhmmerConsEval     : Run nhmmer consensus evaluation [optional]
+     --nhmmerHMMEval      : Run nhmmer HMM evaluation [optional]
+     --dartScore          : Run additional DART cmpalign score [optional]
      --cluster            : Either "local", "quanah", "hrothgar" or "griz" 
                             default="local"
 
@@ -45,6 +49,10 @@ params.dialign = false
 params.kalign = false
 params.clustalo = false
 params.opal = false
+params.cmConsEval = false
+params.nhmmerConsEval = false
+params.nhmmerHMMEval = false
+params.dartScore = false
 params.benchmarkDir = "${workflow.projectDir}/sample"
 params.outputDir = "results"
 params.seed = "${workflow.projectDir}/sample/L2.fa"
@@ -60,58 +68,91 @@ runClustalO = params.clustalo
 runOpal = params.opal
 runFastSP = false
 runQScore = true
+runCMConsEval = params.cmConsEval
+runNhmmerConsEval = params.nhmmerConsEval
+runNhmmerHMMEval = params.nhmmerHMMEval
+runDartScore = params.dartScore
 outputDir = params.outputDir
 
 // Default software dependencies ( see localizations in cluster sections )
 
 // SPS calculation through qscore program
-qscoreDir = "/home/rhubley/projects/DNAMultipleAlignment/qscore"
+qscoreDir = "/home/rhubley/bin"
+//qscoreDir = "/home/rhubley/projects/DNAMultipleAlignment/qscore"
+
 // SPS calcuation throuh dart AMA program
-dartDir = "/home/rhubley/projects/DNAMultipleAlignment/dart/bin"
+dartDir = "/home/rhubley/bin"
+//dartDir = "/home/rhubley/projects/DNAMultipleAlignment/dart/bin"
+
 // SPS calcuation through fastSP package ( removed )
 //fastSPDir = "/home/rhubley/projects/DNAMultipleAlignment/FastSP"
+
 // Phil Greens crossmatch program - for consensus model eval
-phrapDir = "/usr/local/phrap"
+phrapDir = "/home/rhubley/phrap-1.090518"
+//phrapDir = "/usr/local/phrap"
+
 // Eddy/Wheeler nhmmer program - for HMM model eval
-hmmerDir = "/usr/local/hmmer/bin"
+hmmerDir = "/home/rhubley/hmmer-3.3.2/bin"
+//hmmerDir = "/usr/local/hmmer/bin"
+
 // 
 // Aligners
 //
 // MAFFT aligner [ https://mafft.cbrc.jp/alignment/software/mafft-7.481-without-extensions-src.tgz ]
-mafftDir = "/usr/local/mafft/bin"
+//    vi core/Makefile -- set prefix correctly otherwise hardcoded paths don't get set correctly
+//    cd core; make; make install
+mafftDir = "/home/rhubley/mafft-7.481/bin"
+//mafftDir = "/usr/local/mafft/bin"
+
 // DIALIGN aligner [ http://dialign-tx.gobics.de/DIALIGN-TX_1.0.2.tar.gz ]
 //    CPPFLAGS=-O3 -funroll-loops  -mfpmath=sse -msse  -mmmx
-dialignDir = "/usr/local/dialign-tx-1.0.2"
+//    NOTE: This is the directory containing the subdirctory bin/ and conf/
+dialignDir = "/home/rhubley/DIALIGN-TX_1.0.2"
+//dialignDir = "/usr/local/dialign-tx-1.0.2"
+
 // Kalign Aligner 2.0.4 [ http://msa.sbc.su.se/downloads/kalign/current.tar.gz ]
 //    mkdir kalign-2.0.4; cd kalign-2.0.4; tar zxvf ../current.tar.gz
-kalignDir = "/usr/local/kalign2"
+kalignDir = "/home/rhubley/kalign-2.0.4"
+//kalignDir = "/usr/local/kalign2"
+
 // --unused--
 clustalW2Dir = "/usr/local/bin"
+
 // Clustal Omega 1.2.4 [ http://www.clustal.org/omega/clustalo-1.2.4-Ubuntu-x86_64 ]
 //    mkdir clustal-omega-1.2.4; mv clustalo-1.2.4-Ubuntu-x86_64 clustal-omega-1.2.4/clustalo
 //    chmod 755 clustal-omega-1.2.4/clustalo
-clustalOmegaDir = "/u1/local/clustal-omega-1.2.4-binary"
+clustalOmegaDir = "/home/rhubley/clustal-omega-1.2.4"
+//clustalOmegaDir = "/u1/local/clustal-omega-1.2.4-binary"
+
 // --unused-- Opal Aligner 2.1.3 [ http://opal.cs.arizona.edu/old_distros/opal_2.1.3.tgz ]
 opalDir = "/u1/local/opal_2.1.3"
+
 // FSA Aligner 1.15.9 [ https://sourceforge.net/projects/fsa/files/fsa-1.15.9.tar.gz/download ]
-//     mv download fsa-1.15.9.tar.gz; tar zxvf fsa-1.15.9.tar.gz; cd fsa-1.15.9; ./configure; make
+//     Depends on MUMmer [ https://sourceforge.net/projects/mummer/files/mummer/3.23/MUMmer3.23.tar.gz/download ]
+//       mv download MUMmer-3.23.tar.gz; tar zxvf MUMmer-3.23.tar.gz; cd MUMmer-3.23/; make install
+//     mv download fsa-1.15.9.tar.gz; tar zxvf fsa-1.15.9.tar.gz; cd fsa-1.15.9; ./configure --with....; make
 //     *binaries are in fsa-1.15.9/src/main*
-fsaDir = "/usr/local/fsa/bin"
+fsaDir = "/home/rhubley/fsa-1.15.9/bin"
+//fsaDir = "/usr/local/fsa/bin"
+
 // Muscle 3.8.31 [ https://www.drive5.com/muscle/downloads3.8.31/muscle3.8.31_i86linux64.tar.gz ]
 //     tar zxvf muscle3.8.31_i86linux64.tar.gz; mkdir muscle-3.8.31; mv muscle3.8.31_i86linux64 muscle-3.8.31/muscle
 //     chmod 755 muscle-3.8.31/muscle
-muscleDir = "/usr/local/bin"
+muscleDir = "/home/rhubley/muscle-3.8.31"
+//muscleDir = "/usr/local/bin"
+
 // Refiner alignment through RepeatModeler package [ https://www.repeatmasker.org/RepeatModeler/RepeatModeler-2.0.2a.tar.gz ]
-repeatmodelerDir = "/usr/local/RepeatModeler-2.0.2a"
+repeatmodelerDir = "/home/rhubley/RepeatModeler-2.0.2a"
+//repeatmodelerDir = "/usr/local/RepeatModeler-2.0.2a"
 
 //FOR DEBUGGING...limit the files run
 //Channel.fromFilePairs( params.benchmarkDir + "/rep-1/gput100-{train-seqs,train-refmsa,test-seqs}.fa", size: 3, flat:true )
+//     .into { benchmarkFilesForComp }
 
 //
 // E.g "gput100-", "gput100-train-seqs.fa", "gput100-train-refmsa.fa", "gput100-test-seqs.fa"
 Channel.fromFilePairs( params.benchmarkDir + "/*/*-{train-seqs,train-refmsa,test-seqs}.fa", size: 3, flat:true )
        .into { benchmarkFilesForComp }
-//       .into { benchmarkFilesForComp; benchmarkFilesForMafft; benchmarkFilesForRefiner; benchmarkFilesForMuscle; benchmarkFilesForClustalW2 }
 
 // Constant seedFile for use in all processes
 seedFile = file(params.seed)
@@ -125,25 +166,24 @@ if ( params.cluster == "local" ) {
   thisQueue = ""
   thisOptions = ""
   thisScratch = false
-}else if ( params.cluster == "quanah" ){
-  proc = 12
+}else if ( params.cluster == "nocona" ){
+  // nocona:
+  //   240 nodes, 38720 cores
+  //   128 cores/node, 512 GB/node
+  //   4 GB/core
   thisExecutor = "slurm"
   thisQueue = "nocona"
-  thisOptions = "-pe sm ${proc} -P quanah -S /bin/bash"
-  ucscToolsDir="/home/rhubley/ucscTools"
-  repeatMaskerDir="/home/rhubley/RepeatMasker"
+  thisOptions = "--ntasks=1 --nodes=1"
   thisScratch = false
 }else if ( params.cluster == "griz" ) {
   proc = 12
   thisExecutor = "slurm"
   thisQueue = "wheeler_lab_large_cpu"
   thisOptions = "--tasks=1 --cpus-per-task=${proc}"
-  ucscToolsDir="/home/rh105648e/ucscTools"
-  repeatMaskerDir="/home/rh105648e/RepeatMasker-4.1.1"
   thisScratch = "/state/partition1"
 }
 
-log.info "evalMultipleAlign.nf : Multiple Alignment Evaluation ver 0.2"
+log.info "evalMultipleAlign.nf : Multiple Alignment Evaluation ver 0.3"
 log.info "============================================================"
 log.info "working directory   : " + workflow.workDir
 log.info "RepeatModeler DIR   : " + repeatmodelerDir
@@ -182,6 +222,11 @@ log.info "Queue/Partititon    : " + thisQueue
 
 
 process processRefMSA {
+  cpus 2
+  executor = thisExecutor
+  queue = thisQueue
+  clusterOptions = thisOptions
+  scratch = thisScratch
   publishDir "${outputDir}", mode: 'copy', saveAs: { filename -> "$repDir/$filename" }
 
   input:
@@ -224,6 +269,12 @@ process processRefMSA {
 
 
 process runFSA {
+  cpus 2
+  executor = thisExecutor
+  queue = thisQueue
+  clusterOptions = thisOptions
+  scratch = thisScratch
+
   publishDir "${outputDir}", mode: 'copy', saveAs: { filename -> "$repDir/$filename" }
 
   input:
@@ -284,6 +335,12 @@ process runFSA {
 //  KAlign: https://msa.sbc.su.se/cgi-bin/msa.cgi
 //    parameters suggested by website for DNA
 process runKalign {
+  cpus 2  
+  executor = thisExecutor
+  queue = thisQueue
+  clusterOptions = thisOptions
+  scratch = thisScratch
+
   publishDir "${outputDir}", mode: 'copy', saveAs: { filename -> "$repDir/$filename" }
 
   input:
@@ -344,6 +401,12 @@ process runKalign {
 //  DIALIGN: http://dialign.gobics.de/
 // Switched to dialigntx because it does appear to perform better
 process runDialign {
+  cpus 2
+  executor = thisExecutor
+  queue = thisQueue
+  clusterOptions = thisOptions
+  scratch = thisScratch
+
   publishDir "${outputDir}", mode: 'copy', saveAs: { filename -> "$repDir/$filename" }
 
   input:
@@ -376,7 +439,7 @@ process runDialign {
   #export DIALIGN2_DIR=${dialignDir}/dialign2_dir
   #${dialignDir}/dialign2-2 -n -fa -fn ${simPrefix}-dialign ${referenceSeqFile} 
   #### Run Dialigntx
-  ${dialignDir}/dialign-tx -D ${dialignDir}/conf ${referenceSeqFile} ${simPrefix}-dialign.fa
+  ${dialignDir}/bin/dialign-tx -D ${dialignDir}/conf ${referenceSeqFile} ${simPrefix}-dialign.fa
 
 
   #### Sanity Check MSA
@@ -466,6 +529,11 @@ process runClustalW2 {
 
 process runClustalO {
   cpus 16
+  executor = thisExecutor
+  queue = thisQueue
+  clusterOptions = thisOptions
+  scratch = thisScratch
+
   publishDir "${outputDir}", mode: 'copy', saveAs: { filename -> "$repDir/$filename" }
 
   input:
@@ -527,7 +595,7 @@ process runClustalO {
 }
 
 process runOpal {
-  cpus 1
+  cpus 2
   publishDir "${outputDir}", mode: 'copy', saveAs: { filename -> "$repDir/$filename" }
 
   input:
@@ -587,6 +655,12 @@ process runOpal {
 
 
 process runMafft {
+  cpus 16
+  executor = thisExecutor
+  queue = thisQueue
+  clusterOptions = thisOptions
+  scratch = thisScratch
+
   publishDir "${outputDir}", mode: 'copy', saveAs: { filename -> "$repDir/$filename" }
 
   input:
@@ -620,7 +694,7 @@ process runMafft {
   # E-INS-i :  --genafpair --maxiterate 1000
   # L-INS-i :  --localpair --maxiterate 1000
   # G-INS-i :  --globalpair --maxiterate 1000
-  ${mafftDir}/mafft --localpair --maxiterate 1000 ${referenceSeqFile} | perl -ne '{ if ( /^>/ ) { print; } else { print uc(\$_); } }' > ${simPrefix}-mafft.fa 
+  ${mafftDir}/mafft --thread 16 --localpair --maxiterate 1000 ${referenceSeqFile} | perl -ne '{ if ( /^>/ ) { print; } else { print uc(\$_); } }' > ${simPrefix}-mafft.fa 
 
   #### Sanity Check MSA
   # Since this is a full sequence MSA the validate the sequences against the reference MSA as a sanity check
@@ -650,6 +724,12 @@ process runMafft {
 
 
 process runMuscle {
+  cpus 2
+  executor = thisExecutor
+  queue = thisQueue
+  clusterOptions = thisOptions
+  scratch = thisScratch
+
   publishDir "${outputDir}", mode: 'copy', saveAs: { filename -> "$repDir/$filename" }
 
   input:
@@ -706,6 +786,12 @@ process runMuscle {
 
 
 process runRefiner {
+  cpus 2
+  executor = thisExecutor
+  queue = thisQueue
+  clusterOptions = thisOptions
+  scratch = thisScratch
+
   publishDir "${outputDir}", mode: 'copy', saveAs: { filename -> "$repDir/$filename" }
 
   input:
@@ -787,7 +873,16 @@ process runRefiner {
 }
 
 process evalAMA {
+  cpus 2
+  executor = thisExecutor
+  queue = thisQueue
+  clusterOptions = thisOptions
+  scratch = thisScratch
+
   publishDir "${outputDir}", mode: 'copy', saveAs: { filename -> "$repDir/$filename" }
+
+  when:
+  runDartScore
 
   input:
   set file(predictedMSAFile), file(testSeqFile), file(referenceMSAFile), file(referenceSeqFile) from refinerToAMAChan.mix(muscleToAMAChan,mafftToAMAChan,clustalw2ToAMAChan,dialignToAMAChan,kalignToAMAChan,fsaToAMAChan, opalToAMAChan, clustaloToAMAChan)
@@ -806,6 +901,7 @@ process evalAMA {
 }
 
 process evalQScore {
+  cpus 2
   publishDir "${outputDir}", mode: 'copy', saveAs: { filename -> "$repDir/$filename" }
 
   input:
@@ -827,7 +923,16 @@ process evalQScore {
 
 
 process runCrossmatch {
+  cpus 2
+  executor = thisExecutor
+  queue = thisQueue
+  clusterOptions = thisOptions
+  scratch = thisScratch
+
   publishDir "${outputDir}", mode: 'copy', saveAs: { filename -> "$repDir/$filename" }
+
+  when:
+  runCMConsEval
 
   input:
   set file(consFile), file(testSeqFile) from refinerToCrossmatchChan.mix(muscleToCrossmatchChan,mafftToCrossmatchChan,clustalw2ToCrossmatchChan,dialignToCrossmatchChan,kalignToCrossmatchChan,fsaToCrossmatchChan,opalToCrossmatchChan,clustaloToCrossmatchChan)
@@ -847,7 +952,16 @@ process runCrossmatch {
 
 
 process runNhmmerHMM {
+  cpus 8
+  executor = thisExecutor
+  queue = thisQueue
+  clusterOptions = thisOptions
+  scratch = thisScratch
+
   publishDir "${outputDir}", mode: 'copy', saveAs: { filename -> "$repDir/$filename" }
+
+  when:
+  runNhmmerHMMEval
 
   input:
   set file(hmmFile), file(testSeqFile) from refinerToNhmmerHMMChan.mix(muscleToNhmmerHMMChan,mafftToNhmmerHMMChan,clustalw2ToNhmmerHMMChan,dialignToNhmmerHMMChan,kalignToNhmmerHMMChan,fsaToNhmmerHMMChan,opalToNhmmerHMMChan,clustaloToNhmmerHMMChan)
@@ -860,13 +974,22 @@ process runNhmmerHMM {
   // Identify the "rep-#" directory from the path to the referenceMSAFile for output
   repDir = testSeqFile.toRealPath().getName(testSeqFile.toRealPath().getNameCount() - 2)
   """
-  ${hmmerDir}/nhmmer --noali --dfamtblout ${hmmFile.baseName}.nhmmer ${hmmFile} ${testSeqFile} > /dev/null
+  ${hmmerDir}/nhmmer --cpu 8 --noali --dfamtblout ${hmmFile.baseName}.nhmmer ${hmmFile} ${testSeqFile} > /dev/null
   cat ${hmmFile.baseName}.nhmmer | tr -s ' ' | cut -d ' ' -f 4 | awk '{s+=\$1} END {print s}' > ${hmmFile.baseName}.nhmmer_score
   """
 }
 
 process runNhmmerCONS {
+  cpus 8
+  executor = thisExecutor
+  queue = thisQueue
+  clusterOptions = thisOptions
+  scratch = thisScratch
+
   publishDir "${outputDir}", mode: 'copy', saveAs: { filename -> "$repDir/$filename" }
+
+  when:
+  runNhmmerConsEval
 
   input:
   set file(consFile), file(testSeqFile) from refinerToNhmmerCONSChan.mix(muscleToNhmmerCONSChan,mafftToNhmmerCONSChan,clustalw2ToNhmmerCONSChan,dialignToNhmmerCONSChan,kalignToNhmmerCONSChan,fsaToNhmmerCONSChan,opalToNhmmerCONSChan,clustaloToNhmmerCONSChan)
@@ -879,7 +1002,7 @@ process runNhmmerCONS {
   // Identify the "rep-#" directory from the path to the referenceMSAFile for output
   repDir = testSeqFile.toRealPath().getName(testSeqFile.toRealPath().getNameCount() - 2)
   """
-  ${hmmerDir}/nhmmer --dna --noali --dfamtblout ${consFile.baseName}.nhmmer ${consFile} ${testSeqFile} > /dev/null
+  ${hmmerDir}/nhmmer --cpu 8 --dna --noali --dfamtblout ${consFile.baseName}.nhmmer ${consFile} ${testSeqFile} > /dev/null
   cat ${consFile.baseName}.nhmmer | tr -s ' ' | cut -d ' ' -f 4 | awk '{s+=\$1} END {print s}' > ${consFile.baseName}.nhmmer_score
   """
 }

@@ -1,4 +1,4 @@
-#!/usr/local/bin/perl
+#!/usr/bin/perl
 use strict;
 
 # ./validateEstimatedMSA.pl referenceMSA.fa estimatedMSA.fa or estimatedMSA.stk

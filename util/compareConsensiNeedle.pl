@@ -1,13 +1,16 @@
-#!/usr/local/bin/perl
+#!/usr/bin/perl
 use strict;
-use lib "/home/rhubley/projects/RepeatMasker";
+use lib "/lustre/work/daray/software/RepeatMasker-4.1.2-p1";
+use lib "/usr/local/RepeatMasker";
+use FindBin;
 use SearchResult;
 use Matrix;
 
-my $EMBOSSDIR = "/usr/local/EMBOSS-6.6.0/bin";
+#my $EMBOSSDIR = "/usr/local/EMBOSS-6.6.0/bin";
+my $EMBOSSDIR = "/home/rhubley/EMBOSS-6.6.0/bin";
 my $needle = "$EMBOSSDIR/needle";
 #my $matrixFile = "/usr/local/RepeatModeler/matrices/ncbi/nt/comparison.matrix";
-my $matrixFile = "/home/rhubley/projects/DNAMultipleAlignment/TEForwardEvolve/matrices/comparison-deterNs.matrix";
+my $matrixFile = "$FindBin::Bin/../matrices/comparison-deterNs.matrix";
 my $gapOpen = 25.0;
 my $gapExtn = 5.0;
 
