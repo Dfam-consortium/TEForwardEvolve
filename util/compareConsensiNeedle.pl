@@ -6,8 +6,8 @@ use FindBin;
 use SearchResult;
 use Matrix;
 
-#my $EMBOSSDIR = "/usr/local/EMBOSS-6.6.0/bin";
-my $EMBOSSDIR = "/home/rhubley/EMBOSS-6.6.0/bin";
+my $EMBOSSDIR = "/usr/local/EMBOSS-6.6.0/bin";
+#my $EMBOSSDIR = "/home/rhubley/EMBOSS-6.6.0/bin";
 my $needle = "$EMBOSSDIR/needle";
 #my $matrixFile = "/usr/local/RepeatModeler/matrices/ncbi/nt/comparison.matrix";
 my $matrixFile = "$FindBin::Bin/../matrices/comparison-deterNs.matrix";
