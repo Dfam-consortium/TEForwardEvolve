@@ -73,6 +73,12 @@ runNhmmerConsEval = params.nhmmerConsEval
 runNhmmerHMMEval = params.nhmmerHMMEval
 runDartScore = params.dartScore
 outputDir = params.outputDir
+// This seems to be important for this special variable
+// othewise the hash'es for the resume do not match. It's 
+// both necessary to have a new variable rather than use
+// ${workflow.projectDir} in a process definition *and*
+// "def" is necessary.
+def projDir = workflow.projectDir
 
 // Default software dependencies ( see localizations in cluster sections )
 
@@ -261,8 +267,8 @@ process processRefMSA {
   ${repeatmodelerDir}/util/Linup ${referenceMSAFile} | grep "Avg Kimura Div" > ${referenceMSAFile.baseName}.avgKDiv
   # Compare consensus to input SEED sequence and evaluate
   #   E.g. compareConsensiNeedle.pl gput100-train-refmsa.cons.fa L2.fa > gput100-train-refmsa.cons.vs_seed
-  ${workflow.projectDir}/util/compareConsensiNeedle.pl ${referenceMSAFile.baseName}.cons.fa ${seedFile} > ${referenceMSAFile.baseName}.cons.vs_seed
-  ${workflow.projectDir}/util/compareConsensiNeedle.pl ${referenceMSAFile.baseName}.cons.fa ${referenceMSAFile.baseName}.cons.fa > ${referenceMSAFile.baseName}.cons.vs_self
+  ${projDir}/util/compareConsensiNeedle.pl ${referenceMSAFile.baseName}.cons.fa ${seedFile} > ${referenceMSAFile.baseName}.cons.vs_seed
+  ${projDir}/util/compareConsensiNeedle.pl ${referenceMSAFile.baseName}.cons.fa ${referenceMSAFile.baseName}.cons.fa > ${referenceMSAFile.baseName}.cons.vs_self
   ###########
   """
 }
@@ -308,21 +314,21 @@ process runFSA {
 
   #### Sanity Check MSA
   # Since this is a full sequence MSA the validate the sequences against the reference MSA as a sanity check
-  ${workflow.projectDir}/util/validateEstimatedMSA.pl ${referenceMSAFile} ${simPrefix}-fsa.fa
+  ${projDir}/util/validateEstimatedMSA.pl ${referenceMSAFile} ${simPrefix}-fsa.fa
 
   #### Generate Consensus Model
   # Generate two consensus files from the multiple alignment.  One which includes single sequence alignment edges, and a trimmed version
   # which trims back until there is at least one column containing two or more sequences.
   ${repeatmodelerDir}/util/Linup -consensus -name ${referenceMSAFile.baseName} ${simPrefix}-fsa.fa > ${simPrefix}-fsa.cons.fa
-  ${workflow.projectDir}/util/trimUnalignedEdges.pl ${simPrefix}-fsa.fa > trimmed-msa.fa
+  ${projDir}/util/trimUnalignedEdges.pl ${simPrefix}-fsa.fa > trimmed-msa.fa
   ${repeatmodelerDir}/util/Linup -consensus -name ${referenceMSAFile.baseName} trimmed-msa.fa > ${simPrefix}-fsa.trimmed-cons.fa
 
   #### Consensus VS Consensus
   # Compare consensi to evalute how well each can rebuild the ref msa consensus
   #   E.g. compareConsensiNeedle.pl gput100-train-fsa.cons.fa L2.fa > gput100-train-fsa.cons.vs_refmsacons
   #        compareConsensiNeedle.pl gput100-train-fsa.trimmed-cons.fa L2.fa > gput100-train-fsa.trimmed-cons.vs_refmsacons
-  ${workflow.projectDir}/util/compareConsensiNeedle.pl ${simPrefix}-fsa.cons.fa ${referenceMSACons} > ${simPrefix}-fsa.cons.vs_refmsacons 
-  ${workflow.projectDir}/util/compareConsensiNeedle.pl ${simPrefix}-fsa.trimmed-cons.fa ${referenceMSACons} > ${simPrefix}-fsa.trimmed-cons.vs_refmsacons
+  ${projDir}/util/compareConsensiNeedle.pl ${simPrefix}-fsa.cons.fa ${referenceMSACons} > ${simPrefix}-fsa.cons.vs_refmsacons 
+  ${projDir}/util/compareConsensiNeedle.pl ${simPrefix}-fsa.trimmed-cons.fa ${referenceMSACons} > ${simPrefix}-fsa.trimmed-cons.vs_refmsacons
 
   #### Generate HMM Model
   ${repeatmodelerDir}/util/Linup -noTemplate -name predicted -stockholm trimmed-msa.fa > trimmed.stk
@@ -374,21 +380,21 @@ process runKalign {
 
   #### Sanity Check MSA
   # Since this is a full sequence MSA the validate the sequences against the reference MSA as a sanity check
-  ${workflow.projectDir}/util/validateEstimatedMSA.pl ${referenceMSAFile} ${simPrefix}-kalign.fa
+  ${projDir}/util/validateEstimatedMSA.pl ${referenceMSAFile} ${simPrefix}-kalign.fa
 
   #### Generate Consensus Model
   # Generate two consensus files from the multiple alignment.  One which includes single sequence alignment edges, and a trimmed version
   # which trims back until there is at least one column containing two or more sequences.
   ${repeatmodelerDir}/util/Linup -consensus -name ${referenceMSAFile.baseName} ${simPrefix}-kalign.fa > ${simPrefix}-kalign.cons.fa
-  ${workflow.projectDir}/util/trimUnalignedEdges.pl ${simPrefix}-kalign.fa > trimmed-msa.fa
+  ${projDir}/util/trimUnalignedEdges.pl ${simPrefix}-kalign.fa > trimmed-msa.fa
   ${repeatmodelerDir}/util/Linup -consensus -name ${referenceMSAFile.baseName} trimmed-msa.fa > ${simPrefix}-kalign.trimmed-cons.fa
 
   #### Consensus VS Consensus
   # Compare consensi to evalute how well each can rebuild the ref msa consensus
   #   E.g. compareConsensiNeedle.pl gput100-train-kalign.cons.fa L2.fa > gput100-train-kalign.cons.vs_refmsacons
   #        compareConsensiNeedle.pl gput100-train-kalign.trimmed-cons.fa L2.fa > gput100-train-kalign.trimmed-cons.vs_refmsacons
-  ${workflow.projectDir}/util/compareConsensiNeedle.pl ${simPrefix}-kalign.cons.fa ${referenceMSACons} > ${simPrefix}-kalign.cons.vs_refmsacons 
-  ${workflow.projectDir}/util/compareConsensiNeedle.pl ${simPrefix}-kalign.trimmed-cons.fa ${referenceMSACons} > ${simPrefix}-kalign.trimmed-cons.vs_refmsacons
+  ${projDir}/util/compareConsensiNeedle.pl ${simPrefix}-kalign.cons.fa ${referenceMSACons} > ${simPrefix}-kalign.cons.vs_refmsacons 
+  ${projDir}/util/compareConsensiNeedle.pl ${simPrefix}-kalign.trimmed-cons.fa ${referenceMSACons} > ${simPrefix}-kalign.trimmed-cons.vs_refmsacons
 
   #### Generate HMM Model
   ${repeatmodelerDir}/util/Linup -noTemplate -name predicted -stockholm trimmed-msa.fa > trimmed.stk
@@ -444,21 +450,21 @@ process runDialign {
 
   #### Sanity Check MSA
   # Since this is a full sequence MSA the validate the sequences against the reference MSA as a sanity check
-  ${workflow.projectDir}/util/validateEstimatedMSA.pl ${referenceMSAFile} ${simPrefix}-dialign.fa
+  ${projDir}/util/validateEstimatedMSA.pl ${referenceMSAFile} ${simPrefix}-dialign.fa
 
   #### Generate Consensus Model
   # Generate two consensus files from the multiple alignment.  One which includes single sequence alignment edges, and a trimmed version
   # which trims back until there is at least one column containing two or more sequences.
   ${repeatmodelerDir}/util/Linup -consensus -name ${referenceMSAFile.baseName} ${simPrefix}-dialign.fa > ${simPrefix}-dialign.cons.fa
-  ${workflow.projectDir}/util/trimUnalignedEdges.pl ${simPrefix}-dialign.fa > trimmed-msa.fa
+  ${projDir}/util/trimUnalignedEdges.pl ${simPrefix}-dialign.fa > trimmed-msa.fa
   ${repeatmodelerDir}/util/Linup -consensus -name ${referenceMSAFile.baseName} trimmed-msa.fa > ${simPrefix}-dialign.trimmed-cons.fa
 
   #### Consensus VS Consensus
   # Compare consensi to evalute how well each can rebuild the ref msa consensus
   #   E.g. compareConsensiNeedle.pl gput100-train-dialign.cons.fa L2.fa > gput100-train-dialign.cons.vs_refmsacons
   #        compareConsensiNeedle.pl gput100-train-dialign.trimmed-cons.fa L2.fa > gput100-train-dialign.trimmed-cons.vs_refmsacons
-  ${workflow.projectDir}/util/compareConsensiNeedle.pl ${simPrefix}-dialign.cons.fa ${referenceMSACons} > ${simPrefix}-dialign.cons.vs_refmsacons 
-  ${workflow.projectDir}/util/compareConsensiNeedle.pl ${simPrefix}-dialign.trimmed-cons.fa ${referenceMSACons} > ${simPrefix}-dialign.trimmed-cons.vs_refmsacons
+  ${projDir}/util/compareConsensiNeedle.pl ${simPrefix}-dialign.cons.fa ${referenceMSACons} > ${simPrefix}-dialign.cons.vs_refmsacons 
+  ${projDir}/util/compareConsensiNeedle.pl ${simPrefix}-dialign.trimmed-cons.fa ${referenceMSACons} > ${simPrefix}-dialign.trimmed-cons.vs_refmsacons
 
   #### Generate HMM Model
   ${repeatmodelerDir}/util/Linup -noTemplate -name predicted -stockholm trimmed-msa.fa > trimmed.stk
@@ -503,21 +509,21 @@ process runClustalW2 {
 
   #### Sanity Check MSA
   # Since this is a full sequence MSA the validate the sequences against the reference MSA as a sanity check
-  ${workflow.projectDir}/util/validateEstimatedMSA.pl ${referenceMSAFile} ${simPrefix}-clustalw2.fa
+  ${projDir}/util/validateEstimatedMSA.pl ${referenceMSAFile} ${simPrefix}-clustalw2.fa
 
   #### Generate Consensus Model
   # Generate two consensus files from the multiple alignment.  One which includes single sequence alignment edges, and a trimmed version
   # which trims back until there is at least one column containing two or more sequences.
   ${repeatmodelerDir}/util/Linup -consensus -name ${referenceMSAFile.baseName} ${simPrefix}-clustalw2.fa > ${simPrefix}-clustalw2.cons.fa
-  ${workflow.projectDir}/util/trimUnalignedEdges.pl ${simPrefix}-clustalw2.fa > trimmed-msa.fa
+  ${projDir}/util/trimUnalignedEdges.pl ${simPrefix}-clustalw2.fa > trimmed-msa.fa
   ${repeatmodelerDir}/util/Linup -consensus -name ${referenceMSAFile.baseName} trimmed-msa.fa > ${simPrefix}-clustalw2.trimmed-cons.fa
 
   #### Consensus VS Consensus
   # Compare consensi to evalute how well each can rebuild the ref msa consensus
   #   E.g. compareConsensiNeedle.pl gput100-train-clustalw2.cons.fa L2.fa > gput100-train-clustalw2.cons.vs_refmsacons
   #        compareConsensiNeedle.pl gput100-train-clustalw2.trimmed-cons.fa L2.fa > gput100-train-clustalw2.trimmed-cons.vs_refmsacons
-  ${workflow.projectDir}/util/compareConsensiNeedle.pl ${simPrefix}-clustalw2.cons.fa ${referenceMSACons} > ${simPrefix}-clustalw2.cons.vs_refmsacons 
-  ${workflow.projectDir}/util/compareConsensiNeedle.pl ${simPrefix}-clustalw2.trimmed-cons.fa ${referenceMSACons} > ${simPrefix}-clustalw2.trimmed-cons.vs_refmsacons
+  ${projDir}/util/compareConsensiNeedle.pl ${simPrefix}-clustalw2.cons.fa ${referenceMSACons} > ${simPrefix}-clustalw2.cons.vs_refmsacons 
+  ${projDir}/util/compareConsensiNeedle.pl ${simPrefix}-clustalw2.trimmed-cons.fa ${referenceMSACons} > ${simPrefix}-clustalw2.trimmed-cons.vs_refmsacons
 
   #### Generate HMM Model
   ${repeatmodelerDir}/util/Linup -noTemplate -name predicted -stockholm trimmed-msa.fa > trimmed.stk
@@ -570,21 +576,21 @@ process runClustalO {
 
   #### Sanity Check MSA
   # Since this is a full sequence MSA the validate the sequences against the reference MSA as a sanity check
-  ${workflow.projectDir}/util/validateEstimatedMSA.pl ${referenceMSAFile} ${simPrefix}-clustalo.fa
+  ${projDir}/util/validateEstimatedMSA.pl ${referenceMSAFile} ${simPrefix}-clustalo.fa
 
   #### Generate Consensus Model
   # Generate two consensus files from the multiple alignment.  One which includes single sequence alignment edges, and a trimmed version
   # which trims back until there is at least one column containing two or more sequences.
   ${repeatmodelerDir}/util/Linup -consensus -name ${referenceMSAFile.baseName} ${simPrefix}-clustalo.fa > ${simPrefix}-clustalo.cons.fa
-  ${workflow.projectDir}/util/trimUnalignedEdges.pl ${simPrefix}-clustalo.fa > trimmed-msa.fa
+  ${projDir}/util/trimUnalignedEdges.pl ${simPrefix}-clustalo.fa > trimmed-msa.fa
   ${repeatmodelerDir}/util/Linup -consensus -name ${referenceMSAFile.baseName} trimmed-msa.fa > ${simPrefix}-clustalo.trimmed-cons.fa
 
   #### Consensus VS Consensus
   # Compare consensi to evalute how well each can rebuild the ref msa consensus
   #   E.g. compareConsensiNeedle.pl gput100-train-clustalo.cons.fa L2.fa > gput100-train-clustalo.cons.vs_refmsacons
   #        compareConsensiNeedle.pl gput100-train-clustalo.trimmed-cons.fa L2.fa > gput100-train-clustalo.trimmed-cons.vs_refmsacons
-  ${workflow.projectDir}/util/compareConsensiNeedle.pl ${simPrefix}-clustalo.cons.fa ${referenceMSACons} > ${simPrefix}-clustalo.cons.vs_refmsacons 
-  ${workflow.projectDir}/util/compareConsensiNeedle.pl ${simPrefix}-clustalo.trimmed-cons.fa ${referenceMSACons} > ${simPrefix}-clustalo.trimmed-cons.vs_refmsacons
+  ${projDir}/util/compareConsensiNeedle.pl ${simPrefix}-clustalo.cons.fa ${referenceMSACons} > ${simPrefix}-clustalo.cons.vs_refmsacons 
+  ${projDir}/util/compareConsensiNeedle.pl ${simPrefix}-clustalo.trimmed-cons.fa ${referenceMSACons} > ${simPrefix}-clustalo.trimmed-cons.vs_refmsacons
 
   #### Generate HMM Model
   ${repeatmodelerDir}/util/Linup -noTemplate -name predicted -stockholm trimmed-msa.fa > trimmed.stk
@@ -629,21 +635,21 @@ process runOpal {
 
   #### Sanity Check MSA
   # Since this is a full sequence MSA the validate the sequences against the reference MSA as a sanity check
-  ${workflow.projectDir}/util/validateEstimatedMSA.pl ${referenceMSAFile} ${simPrefix}-opal.fa
+  ${projDir}/util/validateEstimatedMSA.pl ${referenceMSAFile} ${simPrefix}-opal.fa
 
   #### Generate Consensus Model
   # Generate two consensus files from the multiple alignment.  One which includes single sequence alignment edges, and a trimmed version
   # which trims back until there is at least one column containing two or more sequences.
   ${repeatmodelerDir}/util/Linup -consensus -name ${referenceMSAFile.baseName} ${simPrefix}-opal.fa > ${simPrefix}-opal.cons.fa
-  ${workflow.projectDir}/util/trimUnalignedEdges.pl ${simPrefix}-opal.fa > trimmed-msa.fa
+  ${projDir}/util/trimUnalignedEdges.pl ${simPrefix}-opal.fa > trimmed-msa.fa
   ${repeatmodelerDir}/util/Linup -consensus -name ${referenceMSAFile.baseName} trimmed-msa.fa > ${simPrefix}-opal.trimmed-cons.fa
 
   #### Consensus VS Consensus
   # Compare consensi to evalute how well each can rebuild the ref msa consensus
   #   E.g. compareConsensiNeedle.pl gput100-train-opal.cons.fa L2.fa > gput100-train-opal.cons.vs_refmsacons
   #        compareConsensiNeedle.pl gput100-train-opal.trimmed-cons.fa L2.fa > gput100-train-opal.trimmed-cons.vs_refmsacons
-  ${workflow.projectDir}/util/compareConsensiNeedle.pl ${simPrefix}-opal.cons.fa ${referenceMSACons} > ${simPrefix}-opal.cons.vs_refmsacons 
-  ${workflow.projectDir}/util/compareConsensiNeedle.pl ${simPrefix}-opal.trimmed-cons.fa ${referenceMSACons} > ${simPrefix}-opal.trimmed-cons.vs_refmsacons
+  ${projDir}/util/compareConsensiNeedle.pl ${simPrefix}-opal.cons.fa ${referenceMSACons} > ${simPrefix}-opal.cons.vs_refmsacons 
+  ${projDir}/util/compareConsensiNeedle.pl ${simPrefix}-opal.trimmed-cons.fa ${referenceMSACons} > ${simPrefix}-opal.trimmed-cons.vs_refmsacons
 
   #### Generate HMM Model
   ${repeatmodelerDir}/util/Linup -noTemplate -name predicted -stockholm trimmed-msa.fa > trimmed.stk
@@ -698,21 +704,21 @@ process runMafft {
 
   #### Sanity Check MSA
   # Since this is a full sequence MSA the validate the sequences against the reference MSA as a sanity check
-  ${workflow.projectDir}/util/validateEstimatedMSA.pl ${referenceMSAFile} ${simPrefix}-mafft.fa
+  ${projDir}/util/validateEstimatedMSA.pl ${referenceMSAFile} ${simPrefix}-mafft.fa
 
   #### Generate Consensus Model
   # Generate two consensus files from the multiple alignment.  One which includes single sequence alignment edges, and a trimmed version
   # which trims back until there is at least one column containing two or more sequences.
   ${repeatmodelerDir}/util/Linup -consensus -name ${referenceMSAFile.baseName} ${simPrefix}-mafft.fa > ${simPrefix}-mafft.cons.fa
-  ${workflow.projectDir}/util/trimUnalignedEdges.pl ${simPrefix}-mafft.fa > trimmed-msa.fa
+  ${projDir}/util/trimUnalignedEdges.pl ${simPrefix}-mafft.fa > trimmed-msa.fa
   ${repeatmodelerDir}/util/Linup -consensus -name ${referenceMSAFile.baseName} trimmed-msa.fa > ${simPrefix}-mafft.trimmed-cons.fa
 
   #### Consensus VS Consensus
   # Compare consensi to evalute how well each can rebuild the ref msa consensus
   #   E.g. compareConsensiNeedle.pl gput100-train-mafft.cons.fa L2.fa > gput100-train-mafft.cons.vs_refmsacons
   #        compareConsensiNeedle.pl gput100-train-mafft.trimmed-cons.fa L2.fa > gput100-train-mafft.trimmed-cons.vs_refmsacons
-  ${workflow.projectDir}/util/compareConsensiNeedle.pl ${simPrefix}-mafft.cons.fa ${referenceMSACons} > ${simPrefix}-mafft.cons.vs_refmsacons 
-  ${workflow.projectDir}/util/compareConsensiNeedle.pl ${simPrefix}-mafft.trimmed-cons.fa ${referenceMSACons} > ${simPrefix}-mafft.trimmed-cons.vs_refmsacons
+  ${projDir}/util/compareConsensiNeedle.pl ${simPrefix}-mafft.cons.fa ${referenceMSACons} > ${simPrefix}-mafft.cons.vs_refmsacons 
+  ${projDir}/util/compareConsensiNeedle.pl ${simPrefix}-mafft.trimmed-cons.fa ${referenceMSACons} > ${simPrefix}-mafft.trimmed-cons.vs_refmsacons
 
   #### Generate HMM Model
   ${repeatmodelerDir}/util/Linup -noTemplate -name predicted -stockholm trimmed-msa.fa > trimmed.stk
@@ -760,21 +766,21 @@ process runMuscle {
   """
   # Run muscle and generate a filename like gput100-train-muscle.fa for output
   ${muscleDir}/muscle -in ${referenceSeqFile} -out ${simPrefix}-muscle.fa
-  ${workflow.projectDir}/util/validateEstimatedMSA.pl ${referenceMSAFile} ${simPrefix}-muscle.fa
+  ${projDir}/util/validateEstimatedMSA.pl ${referenceMSAFile} ${simPrefix}-muscle.fa
 
   #### Generate Consensus Model
   # Generate two consensus files from the multiple alignment.  One which includes single sequence alignment edges, and a trimmed version
   # which trims back until there is at least one column containing two or more sequences.
   ${repeatmodelerDir}/util/Linup -consensus -name ${referenceMSAFile.baseName} ${simPrefix}-muscle.fa > ${simPrefix}-muscle.cons.fa
-  ${workflow.projectDir}/util/trimUnalignedEdges.pl ${simPrefix}-muscle.fa > trimmed-msa.fa
+  ${projDir}/util/trimUnalignedEdges.pl ${simPrefix}-muscle.fa > trimmed-msa.fa
   ${repeatmodelerDir}/util/Linup -consensus -name ${referenceMSAFile.baseName} trimmed-msa.fa > ${simPrefix}-muscle.trimmed-cons.fa
 
   #### Consensus VS Consensus
   # Compare consensi to evalute how well each can rebuild the ref msa consensus
   #   E.g. compareConsensiNeedle.pl gput100-train-muscle.cons.fa L2.fa > gput100-train-muscle.cons.vs_refmsacons
   #        compareConsensiNeedle.pl gput100-train-muscle.trimmed-cons.fa L2.fa > gput100-train-muscle.trimmed-cons.vs_refmsacons
-  ${workflow.projectDir}/util/compareConsensiNeedle.pl ${simPrefix}-muscle.cons.fa ${referenceMSACons} > ${simPrefix}-muscle.cons.vs_refmsacons 
-  ${workflow.projectDir}/util/compareConsensiNeedle.pl ${simPrefix}-muscle.trimmed-cons.fa ${referenceMSACons} > ${simPrefix}-muscle.trimmed-cons.vs_refmsacons
+  ${projDir}/util/compareConsensiNeedle.pl ${simPrefix}-muscle.cons.fa ${referenceMSACons} > ${simPrefix}-muscle.cons.vs_refmsacons 
+  ${projDir}/util/compareConsensiNeedle.pl ${simPrefix}-muscle.trimmed-cons.fa ${referenceMSACons} > ${simPrefix}-muscle.trimmed-cons.vs_refmsacons
 
   #### Generate HMM Model
   ${repeatmodelerDir}/util/Linup -noTemplate -name predicted -stockholm trimmed-msa.fa > trimmed.stk
@@ -841,8 +847,8 @@ process runRefiner {
   mv ${referenceSeqFile}.refiner.stk ${simPrefix}-refiner.stk
   mv ${referenceSeqFile}.refiner_cons ${simPrefix}-refiner.cons.fa
   ${repeatmodelerDir}/util/Linup -msa ${simPrefix}-refiner.stk > ${simPrefix}-refiner.fa
-  ${workflow.projectDir}/util/stkToQscoreMSA.pl ${referenceSeqFile} ${simPrefix}-refiner.stk > ${simPrefix}-refiner-padded.fa
-  ${workflow.projectDir}/util/validateEstimatedMSA.pl ${referenceMSAFile} ${simPrefix}-refiner-padded.fa
+  ${projDir}/util/stkToQscoreMSA.pl ${referenceSeqFile} ${simPrefix}-refiner.stk > ${simPrefix}-refiner-padded.fa
+  ${projDir}/util/validateEstimatedMSA.pl ${referenceMSAFile} ${simPrefix}-refiner-padded.fa
 
   #### Generate Consensus Model
   # Generate a consensus from the padded alignment
@@ -852,8 +858,8 @@ process runRefiner {
   # Compare consensi to evalute how well each can rebuild the ref msa consensus
   #   E.g. compareConsensiNeedle.pl gput100-train-refiner-padded.cons.fa L2.fa > gput100-train-refiner-padded.cons.vs_refmsacons
   #        compareConsensiNeedle.pl gput100-train-refiner.cons.fa L2.fa > gput100-train-refiner.cons.vs_refmsacons
-  ${workflow.projectDir}/util/compareConsensiNeedle.pl ${simPrefix}-refiner-padded.cons.fa ${referenceMSACons} > ${simPrefix}-refiner-padded.cons.vs_refmsacons
-  ${workflow.projectDir}/util/compareConsensiNeedle.pl ${simPrefix}-refiner.cons.fa ${referenceMSACons} > ${simPrefix}-refiner.cons.vs_refmsacons
+  ${projDir}/util/compareConsensiNeedle.pl ${simPrefix}-refiner-padded.cons.fa ${referenceMSACons} > ${simPrefix}-refiner-padded.cons.vs_refmsacons
+  ${projDir}/util/compareConsensiNeedle.pl ${simPrefix}-refiner.cons.fa ${referenceMSACons} > ${simPrefix}-refiner.cons.vs_refmsacons
  
   #### Generate HMM Model
   ${repeatmodelerDir}/util/Linup -noTemplate -name predicted -stockholm ${simPrefix}-refiner-padded.fa > padded.stk
@@ -894,8 +900,8 @@ process evalAMA {
   // Identify the "rep-#" directory from the path to the referenceMSAFile for output
   repDir = referenceSeqFile.toRealPath().getName(referenceSeqFile.toRealPath().getNameCount() - 2)
   """
-  ${workflow.projectDir}/util/fastaMSAToSTK.pl ${predictedMSAFile} > ${predictedMSAFile.baseName}.stk
-  ${workflow.projectDir}/util/fastaMSAToSTK.pl ${referenceMSAFile} > reference.stk
+  ${projDir}/util/fastaMSAToSTK.pl ${predictedMSAFile} > ${predictedMSAFile.baseName}.stk
+  ${projDir}/util/fastaMSAToSTK.pl ${referenceMSAFile} > reference.stk
   ${dartDir}/cmpalign reference.stk ${predictedMSAFile.baseName}.stk >& ${predictedMSAFile.baseName}.ama_score
   """
 }
@@ -905,7 +911,7 @@ process evalQScore {
   publishDir "${outputDir}", mode: 'copy', saveAs: { filename -> "$repDir/$filename" }
 
   input:
-  set file(predictedMSAFile), file(testSeqFile), file(referenceMSAFile), file(referenceSeqFile) from refinerToQScoreChan.mix(muscleToQScoreChan,mafftToQScoreChan,clustalw2ToQScoreChan,dialignToQScoreChan,kalignToQScoreChan,fsaToQScoreChan,opalToQScoreChan,clustaloToQScoreChan).view()
+  set file(predictedMSAFile), file(testSeqFile), file(referenceMSAFile), file(referenceSeqFile) from refinerToQScoreChan.mix(muscleToQScoreChan,mafftToQScoreChan,clustalw2ToQScoreChan,dialignToQScoreChan,kalignToQScoreChan,fsaToQScoreChan,opalToQScoreChan,clustaloToQScoreChan)
 
   when:
   runQScore
@@ -945,7 +951,7 @@ process runCrossmatch {
   // Identify the "rep-#" directory from the path to the referenceMSAFile for output
   repDir = testSeqFile.toRealPath().getName(testSeqFile.toRealPath().getNameCount() - 2)
   """
-  ${phrapDir}/cross_match -matrix ${workflow.projectDir}/matrices/14p35g.matrix -masklevel 80 -gap_init -30 -ins_gap_ext -6 -del_gap_ext -5 -minmatch 7 -minscore 180 ${testSeqFile} ${consFile}  > ${consFile.baseName}.cm
+  ${phrapDir}/cross_match -matrix ${projDir}/matrices/14p35g.matrix -masklevel 80 -gap_init -30 -ins_gap_ext -6 -del_gap_ext -5 -minmatch 7 -minscore 180 ${testSeqFile} ${consFile}  > ${consFile.baseName}.cm
   cat ${consFile.baseName}.cm | perl -ne '{if ( /^\\s*(\\d+)\\s+\\d+\\.\\d+/ ){ \$sum+=\$1; } print \$sum if ( eof );}' > ${consFile.baseName}.cm_score
   """
 }
