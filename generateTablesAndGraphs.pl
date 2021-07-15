@@ -4,6 +4,7 @@ use Data::Dumper;
 use JSON;
 
 my $evalDir = $ARGV[0];
+print "Running: $evalDir\n";
 
 # Files:
 #
@@ -72,9 +73,9 @@ while ( my $entry = readdir(INDIR) ){
           }
         }elsif ( $suffix =~ /\.(qscore_score)/ ) {
           my $scoresRef = readQScore("$evalDir/$entry/$repEntry");
-print "Reading: $entry/$repEntry\n" if ( $entry eq "rep-10" && $method eq "clustalo" );
+print "Reading: $entry/$repEntry\n" if ( $entry eq "rep-4" ); #&& $method eq "clustalo" );
           foreach my $key ( keys %{$scoresRef} ) {
-print "                 $key -> $scoresRef->{$key}\n" if ( $entry eq "rep-10" && $method eq "clustalo" );
+print "                 $key -> $scoresRef->{$key}\n" if ( $entry eq "rep-4" ); # && $method eq "clustalo" );
             $data{$replicate}->{$xparam}->{$method}->{$key} = $scoresRef->{$key};
           }
         }elsif ( $suffix =~ /\.nw_score/ ) {
@@ -103,6 +104,8 @@ print "                 $key -> $scoresRef->{$key}\n" if ( $entry eq "rep-10" &&
 closedir INDIR;
 print "Done reading...\n";
 
+  print "Its: " . $data{"1"}->{"6000"}->{"refiner-padded"}->{"QScore_Q"} . "\n";
+  print "Its: " . $data{"4"}->{"6000"}->{"refiner-padded"}->{"QScore_Q"} . "\n";
 
 ##
 ## Scale vs_refmsacons scores
@@ -197,7 +200,13 @@ foreach my $xval ( keys(%{$data{'1'}}) ) {
         $stats{$xval}->{$method}->{"low_stdev_".$column} = 0 if ( $stats{$xval}->{$method}->{"low_stdev_".$column} < 0 );
         $stats{$xval}->{$method}->{"high_stdev_".$column} = 0 if ( $stats{$xval}->{$method}->{"high_stdev_".$column} < 0 );
         # Stderr
-        my $unbSampleStdDev = sqrt($stats{$xval}->{$method}->{"sum_stdev_".$column}/($stats{$xval}->{$method}->{"count_".$column}-1));
+        my $unbSampleStdDev;
+        if ( $stats{$xval}->{$method}->{"count_".$column}-1 <= 0 ) {
+          warn "Count is zero! xval = $xval method = $method sum_stdev_$column (column=$column)\n";
+          $unbSampleStdDev = 0;
+        }else {
+          $unbSampleStdDev = sqrt($stats{$xval}->{$method}->{"sum_stdev_".$column}/($stats{$xval}->{$method}->{"count_".$column}-1));
+        }
         $stats{$xval}->{$method}->{"stderr_".$column} = $unbSampleStdDev / sqrt($stats{$xval}->{$method}->{"count_".$column});
         $stats{$xval}->{$method}->{"high_stderr_".$column} = $stats{$xval}->{$method}->{"mean_".$column} + (2*$stats{$xval}->{$method}->{"stderr_".$column});
         $stats{$xval}->{$method}->{"low_stderr_".$column} = $stats{$xval}->{$method}->{"mean_".$column} - (2*$stats{$xval}->{$method}->{"stderr_".$column});
@@ -225,8 +234,9 @@ foreach my $xval ( keys(%{$data{'1'}}) ) {
 
 my %tables = ();
 # Summary Table
-foreach my $characteristic ( 'AMA_similarity_score', 'AMA_predictive_value', 
-                             'QScore_Q', 'QScore_TC', 'cons.cm_score', 'cons.nhmmer_score', 'hmm.nhmmer_score', 'vs_refmsacons' ) {
+foreach my $characteristic ( 'QScore_Q', 'QScore_TC', 'vs_refmsacons' ) {
+#foreach my $characteristic ( 'AMA_similarity_score', 'AMA_predictive_value', 
+#                             'QScore_Q', 'QScore_TC', 'cons.cm_score', 'cons.nhmmer_score', 'hmm.nhmmer_score', 'vs_refmsacons' ) {
   my @header = ( $xParamName );
   my @values = ();
   my $headerFlag = 1;
@@ -574,6 +584,7 @@ foreach my $replicate ( sort {$a <=> $b} keys(%data) ) {
         }
         push @row, $data{$replicate}->{$gput}->{$method}->{$characteristic};
       }
+
       push @{$tables{$replicate}->{$characteristic}->{'data'}}, [@row];
       $headerFlag = 0;
     }
@@ -721,7 +732,7 @@ sub generateChart {
   if ( exists $props->{'hAxis_direction'} ) {
     $drawChartJSON .= ", direction: " . $props->{'hAxis_direction'};
   }
-  if ( exists $props->{'hAxis_ticks'} ) {
+  if ( exists $props->{'hAxis_ticks'} && $props->{'hAxis_ticks'} ne "" ) {
     $drawChartJSON .= ", ticks: " . $props->{'hAxis_ticks'};
   }
   $drawChartJSON .= "},\n";
@@ -799,9 +810,11 @@ sub readQScore {
   my %scores = ();
   open IN,"<$file" or die;
   while ( <IN> ) {
-    if ( /^Test=\S+;Ref=\S+;Q=([\.\d]+);TC=([\.\d]+)/ ) {
+    #Test=gput6000-train-refiner-padded.fa;Ref=gput6000-train-refmsa.fa;Q=4.73e-05;TC=0
+    if ( /^Test=\S+;Ref=\S+;Q=([\.\de\-]+);TC=([\.\de\-]+)/ ) {
       $scores{'QScore_Q'} = $1;
       $scores{'QScore_TC'} = $2;
+      #if ( /Q=\d+\.\d+e-/ ) { print "Found it: $_ [ $1 : $2]\n"; }
     }
   }
   return \%scores;

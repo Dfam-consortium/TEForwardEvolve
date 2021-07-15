@@ -27,7 +27,7 @@ dataDir = params.dir
 
 // Viz software through RepeatModeler package [ https://www.repeatmasker.org/RepeatModeler/RepeatModeler-2.0.2a.tar.gz ]
 //repeatmodelerDir = "/home/rhubley/RepeatModeler-2.0.2a"
-repeatmodelerDir = "/usr/local/RepeatModeler-2.0.2a"
+repeatmodelerDir = "/home/rhubley/projects/RepeatModeler"
 
 //
 // Setup executor for different environments, particularly
@@ -63,15 +63,20 @@ log.info "Data DIR            : " + dataDir
 log.info "Cluster             : " + params.cluster
 log.info "Queue/Partititon    : " + thisQueue
 
-workChan = Channel.fromPath("paper-data/test-eval/rep-*/*-train-{muscle,mafft,refiner,clustalo,dialign,kalign,fsa,refmsa}.fa").view()
+//workChan = Channel.fromPath("paper-data/test-eval/rep-*/*-train-{muscle,mafft,refiner,clustalo,dialign,kalign,fsa,refmsa}.fa").view()
+workChan = Channel.fromPath("${dataDir}/rep-*/*-train-{muscle,mafft,refiner,clustalo,dialign,kalign,fsa,refmsa}.fa")
        .map { it -> tokens = (it =~ /(rep-\d+)\/((gput|frag)\d+)/)[0]; [tokens[1], tokens[2], it ] }
-       .view()
        .groupTuple(by:[0,1], sort: true)
-       .view()
 
 
 process visualizeMSA{
-  publishDir "paper-data/test-eval/html", mode: 'copy'
+  cpus 1
+  executor = thisExecutor
+  queue = thisQueue
+  clusterOptions = thisOptions
+  scratch = thisScratch
+  publishDir "${dataDir}/html", mode: 'copy'
+
   input:
   set rep, param, file(MSAFiles) from workChan
   
@@ -80,9 +85,9 @@ process visualizeMSA{
 
   script:
   """
-  /home/rhubley/projects/RepeatModeler/util/viewMultipleMSA.pl ${MSAFiles}
+  ${repeatmodelerDir}/util/viewMultipleMSA.pl ${MSAFiles}
   mv MultMSA.html rep-${rep}-${param}.html
-  /home/rhubley/projects/RepeatModeler/util/viewMultipleMSA.pl -fullmsa ${MSAFiles}
+  ${repeatmodelerDir}/util/viewMultipleMSA.pl -fullmsa ${MSAFiles}
   mv MultMSA.html rep-${rep}-${param}-fullmsa.html
   """
 }
