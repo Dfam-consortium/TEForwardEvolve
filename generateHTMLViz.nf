@@ -26,8 +26,7 @@ params.dir = "${workflow.projectDir}/sample"
 dataDir = params.dir
 
 // Viz software through RepeatModeler package [ https://www.repeatmasker.org/RepeatModeler/RepeatModeler-2.0.2a.tar.gz ]
-//repeatmodelerDir = "/home/rhubley/RepeatModeler-2.0.2a"
-repeatmodelerDir = "/home/rhubley/projects/RepeatModeler"
+repeatmodelerDir = "/home/rhubley/RepeatModeler-2.0.2a"
 
 //
 // Setup executor for different environments, particularly
