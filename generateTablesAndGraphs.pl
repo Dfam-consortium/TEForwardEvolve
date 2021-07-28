@@ -57,6 +57,8 @@ while ( my $entry = readdir(INDIR) ){
         my $xparam = $2;
         my $method = $3;
         my $suffix = $4;
+        # No longer want to display spread
+        $xparam =~ s/-300//;
         if ( $suffix eq ".nhmmer_score" ) {
           $suffix = ".hmm.nhmmer_score";
         }
@@ -73,9 +75,9 @@ while ( my $entry = readdir(INDIR) ){
           }
         }elsif ( $suffix =~ /\.(qscore_score)/ ) {
           my $scoresRef = readQScore("$evalDir/$entry/$repEntry");
-print "Reading: $entry/$repEntry\n" if ( $entry eq "rep-4" ); #&& $method eq "clustalo" );
+#print "Reading: $entry/$repEntry\n" if ( $entry eq "rep-4" ); #&& $method eq "clustalo" );
           foreach my $key ( keys %{$scoresRef} ) {
-print "                 $key -> $scoresRef->{$key}\n" if ( $entry eq "rep-4" ); # && $method eq "clustalo" );
+#print "                 $key -> $scoresRef->{$key}\n" if ( $entry eq "rep-4" ); # && $method eq "clustalo" );
             $data{$replicate}->{$xparam}->{$method}->{$key} = $scoresRef->{$key};
           }
         }elsif ( $suffix =~ /\.nw_score/ ) {
@@ -103,9 +105,6 @@ print "                 $key -> $scoresRef->{$key}\n" if ( $entry eq "rep-4" ); 
 }
 closedir INDIR;
 print "Done reading...\n";
-
-  print "Its: " . $data{"1"}->{"6000"}->{"refiner-padded"}->{"QScore_Q"} . "\n";
-  print "Its: " . $data{"4"}->{"6000"}->{"refiner-padded"}->{"QScore_Q"} . "\n";
 
 ##
 ## Scale vs_refmsacons scores
@@ -292,19 +291,22 @@ close OUT;
 my $xAxis = "Average Kimura Divergence";
 my $xTicks = "[ 0.05, 0.10, 0.15, 0.20, 0.25, 0.30, 0.35, 0.40, 0.45, 0.50]";
 if ( $xParamName eq "frag" ) {
-  $xAxis = "Sequence Fragment Size Distribution (bp_mean - bp_stdev)";
+  $xAxis = "Mean Fragment Size (bp)";
   $xTicks = "";
 }
 my %methodColors = ( 
       'refiner-padded_mean' => "#3366CC",
-      'refiner_mean' => "#0099C6",
+      'refiner_mean' => "#3366CC",
+      #'refiner_mean' => "#0099C6",
       'muscle_mean' => "#DC3912",
       'mafft_mean' => "#FF9900",
       'clustalw2_mean' => "#109618",
       'clustalo_mean' => "#109618",
       'dialign_mean' => "#990099",
       'kalign_mean' => "#AAAA11",
-      'fsa_mean' => "#DD4477",
+      #'fsa_mean' => "#DD4477",
+      #'fsa_mean' => "#a65628",
+      'fsa_mean' => "#8c510a",
       'opal_mean' => "#A6BDDB",
       'refmsa_mean' => "#0A69A2" ,
       'refmsa_low_stdev' => "#81B7D8",
@@ -360,6 +362,7 @@ my %summaryGraphMetaData = ( 'avgKDiv' =>
                                    'hAxis_title' => $xAxis,
                                    'vAxis_title' => 'Fraction of Optimal Alignment Score Lost',
                                    'vAxis_direction'  => -1,
+                                   'vAxis_viewWindow_min' => 0.0,
                                    'hAxis_ticks' => $xTicks },
                                    #'vAxis_viewWindow_max'  => 1.0,
                            );
@@ -381,9 +384,6 @@ my %summaryGraphMetaData = ( 'avgKDiv' =>
   print OUT "     function displaySVG( id ) {\n";
   print OUT "         var e = document.getElementById(id);\n";
   print OUT "         var f = e.getElementsByTagName('svg')[0].outerHTML;\n";
-  #print OUT "         var data = new DataTransfer();\n";
-  #print OUT "         data.items.add(f,'text/plain');\n";
-  #print OUT "         navigator.clipboard.write(data);\n";
   print OUT "         navigator.clipboard.writeText(f);\n";
   print OUT "     }\n";
   print OUT "     function drawChart() {\n";
@@ -404,7 +404,8 @@ my %summaryGraphMetaData = ( 'avgKDiv' =>
       # Strip off "_mean" from the labels
       my $methodLabel = $heading;
       $methodLabel =~ s/_mean//g;
-      #push @data, $heading;
+      # Strip off "-padded" for succintness
+      $methodLabel =~ s/-padded//g;
       push @data, $methodLabel;
       if ( exists $methodColors{$heading} ) {
         push @colors, $methodColors{$heading};
@@ -476,9 +477,6 @@ my %summaryGraphMetaData = ( 'avgKDiv' =>
   print OUT "     function displaySVG( id ) {\n";
   print OUT "         var e = document.getElementById(id);\n";
   print OUT "         var f = e.getElementsByTagName('svg')[0].outerHTML;\n";
-  #print OUT "         var data = new DataTransfer();\n";
-  #print OUT "         data.items.add(f,'text/plain');\n";
-  #print OUT "        navigator.clipboard.write(data);\n";
   print OUT "         navigator.clipboard.writeText(f);\n";
   print OUT "     }\n";
   print OUT "     function drawChart() {\n";
@@ -501,6 +499,8 @@ my %summaryGraphMetaData = ( 'avgKDiv' =>
       # Strip off "_mean" from the labels
       my $methodLabel = $heading;
       $methodLabel =~ s/_mean//g;
+      # Strip off "-padded" for succintness
+      $methodLabel =~ s/-padded//g;
       if ( $heading =~ /_stderr/ ) {
         $hdrHash = { 'label' => $methodLabel, 'id' => "id" . $id,  'type' => 'number', 'role' => 'interval'};
       }elsif ( $heading =~ /frag/ ) {
@@ -714,7 +714,7 @@ sub generateChart {
   }
   #$drawChartJSON .= "  width: 1200,\n";
   #$drawChartJSON .= "  height: 500,\n";
-  $drawChartJSON .= "  width: 1000,\n";
+  $drawChartJSON .= "  width: 1200,\n";
   $drawChartJSON .= "  height: 500,\n";
   $drawChartJSON .= "  intervals: { 'style':'area' },\n";
   $drawChartJSON .= "  titleTextStyle: { color: '#808080', fontSize: 28, bold: false },\n";
@@ -743,6 +743,9 @@ sub generateChart {
   $drawChartJSON .= "textStyle: { fontSize: $labelFontSize }, titleTextStyle: { color: '#505050', fontSize: $labelFontSize, italic: false }";
   if ( exists $props->{'vAxis_direction'} ) {
     $drawChartJSON .= ", direction: " . $props->{'vAxis_direction'};
+  }
+  if ( exists $props->{'vAxis_viewWindow_min'} ) {
+    $drawChartJSON .= ", viewWindow: { min: " . $props->{'vAxis_viewWindow_min'} . "}";
   }
   if ( exists $props->{'vAxis_viewWindow_max'} ) {
     $drawChartJSON .= ", viewWindow: { max: " . $props->{'vAxis_viewWindow_max'} . "}";
@@ -811,10 +814,10 @@ sub readQScore {
   open IN,"<$file" or die;
   while ( <IN> ) {
     #Test=gput6000-train-refiner-padded.fa;Ref=gput6000-train-refmsa.fa;Q=4.73e-05;TC=0
+    #Test=frag1200-300-train-dialign.fa;Ref=frag1200-300-train-refmsa.fa;Q=0.437;TC=0.0416
     if ( /^Test=\S+;Ref=\S+;Q=([\.\de\-]+);TC=([\.\de\-]+)/ ) {
       $scores{'QScore_Q'} = $1;
       $scores{'QScore_TC'} = $2;
-      #if ( /Q=\d+\.\d+e-/ ) { print "Found it: $_ [ $1 : $2]\n"; }
     }
   }
   return \%scores;
