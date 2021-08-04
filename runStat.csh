@@ -15,7 +15,7 @@ foreach SIM ( DNATransTree-1-Tigger1-R3S \
               LINETree-2-L2-R3S \
               LINETree-1-CR1-R3S \
               LINETree-2-CR1-R3S )
-  ./generateTablesAndGraphs.pl ${PROJDIR}/${SIM}-eval
+  #./generateTablesAndGraphs.pl ${PROJDIR}/${SIM}-eval
   ./util/CONS-Significance.py ${PROJDIR}/${SIM}-eval/replicates.csv >> ${PROJDIR}/cons_stats.txt
   ./util/SPS-Significance.py ${PROJDIR}/${SIM}-eval/replicates.csv >> ${PROJDIR}/sps_stats.txt
 end

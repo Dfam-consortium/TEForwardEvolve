@@ -85,9 +85,9 @@ process visualizeMSA{
   script:
   """
   ${repeatmodelerDir}/util/viewMultipleMSA.pl ${MSAFiles}
-  mv MultMSA.html rep-${rep}-${param}.html
+  mv MultMSA.html ${rep}-${param}.html
   ${repeatmodelerDir}/util/viewMultipleMSA.pl -fullmsa ${MSAFiles}
-  mv MultMSA.html rep-${rep}-${param}-fullmsa.html
+  mv MultMSA.html ${rep}-${param}-fullmsa.html
   """
 }
 

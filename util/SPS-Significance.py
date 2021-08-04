@@ -2,6 +2,7 @@
 from scipy.stats import wilcoxon
 from scipy.stats import norm
 from scipy.stats import kruskal
+from statistics import mean
 #import scikit_posthocs as sp
 import sys
 from io import StringIO
@@ -62,6 +63,7 @@ nDF = pd.DataFrame(data, columns=sel_cols)
 
 print()
 print ("SPS Statistics for " + sys.argv[1])
+print ("  - Calculated on the area under each sample curve")
 print()
 
 # Calculate Kruskal-Wallis H-test
@@ -72,21 +74,21 @@ print("    H="+str(h)+", p="+str(p))
 print()
 
 
-print ("Wilcoxon signed rank test:")
-print ("    " + "{:12s}".format(""),end='')
-for col2 in range(1,len(nDF.columns)):
-    print ("{:12s}".format(nDF.columns[col2].replace("QScore_Q:","").replace("-padded","")), end='')
+print ("Wilcoxon signed rank test: mean_diff [p-val]")
+print ("    " + "{:17s}".format(""),end='')
+for col2 in range(0,len(nDF.columns)):
+    print ("{:17s}".format(nDF.columns[col2].replace("QScore_Q:","").replace("-padded","")), end='')
 print()
-for col1 in range(0,len(nDF.columns)-1):
-    print ("    " + "{:12s}".format(nDF.columns[col1].replace("QScore_Q:","").replace("-padded","")), end='')
-    for col2 in range(1,len(nDF.columns)):
-        if ( col2 > col1 ):
+for col1 in range(0,len(nDF.columns)):
+    print ("    " + "{:17s}".format(nDF.columns[col1].replace("QScore_Q:","").replace("-padded","")), end='')
+    for col2 in range(0,len(nDF.columns)):
+        if ( col2 != col1 ):
             data1 = nDF[nDF.columns[col1]].tolist()
             data2 = nDF[nDF.columns[col2]].tolist()
             minW, p = wilcoxon(data1, data2)
-            print("{:<12.3f}".format(p),end="")
+            print("{:8.2f}".format(mean(data1)-mean(data2)) + " " + "[{:5.3f}]".format(p) + " ",end="")
         else:
-            print("{:12s}".format(""), end='')
+            print("{:17s}".format(""), end='')
     print('')
 print()
 
