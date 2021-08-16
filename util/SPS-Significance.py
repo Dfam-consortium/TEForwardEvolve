@@ -37,19 +37,53 @@ df = pd.read_csv(CSVDATA)
 sel_cols = [col for col in df.columns if 'QScore_Q' in col and 'gput' not in col]
 data = []
 pdat = []
-for replicate in range(0,10):
-    row = []
-    for col1_idx in range(0,len(sel_cols)):
-        dfl = df[df['replicate_group'] == replicate+1] \
-               .loc[:,[ 'QScore_Q:gput',sel_cols[col1_idx]]]
-        gput = dfl['QScore_Q:gput'].values.tolist()
-        alg = dfl[sel_cols[col1_idx]].values.tolist()
-        alg_area = np.trapz(alg,gput)
-        row.append(alg_area)
-        pdat.append([alg_area,sel_cols[col1_idx][9:]])
-    data.append(row)
-# Data: rows=replicates cols=methods value=area
 
+dft = df[df['replicate_group'] == 1]
+for gput in dft['QScore_Q:gput'].values.tolist():
+    for replicate in range(1,11):
+        dfl=df[(df['replicate_group'] == replicate) & (df['QScore_Q:gput'] == gput)]
+        row = []
+        for col1_idx in range(0,len(sel_cols)):
+            vals = dfl.loc[:,[sel_cols[col1_idx]]].values.tolist()
+            row.append(vals[0][0])
+        #print("gput=" + str(gput) + " rep="+str(replicate)+ ": ", end='' )
+        #print(row)
+        data.append(row)
+
+#                   tool1  tool2  tool3 ...
+# gput=100 rep=1:  [0.998, 0.993, 0.998, 0.997, 0.998, 0.998, 0.912]
+# gput=100 rep=2:  [0.999, 0.980, 0.998, 0.998, 0.997, 0.998, 0.912]
+# gput=100 rep=3:  [0.998, 0.961, 0.998, 0.998, 0.996, 0.998, 0.921]
+# gput=100 rep=4:  [0.997, 0.995, 0.998, 0.997, 0.996, 0.998, 0.927]
+# gput=100 rep=5:  [0.997, 0.975, 0.997, 0.996, 0.998, 0.998, 0.899]
+# gput=100 rep=6:  [0.998, 0.991, 0.998, 0.997, 0.995, 0.998, 0.888]
+# gput=100 rep=7:  [0.998, 0.990, 0.998, 0.996, 0.996, 0.998, 0.923]
+# gput=100 rep=8:  [0.996, 0.989, 0.997, 0.997, 0.997, 0.998, 0.919]
+# gput=100 rep=9:  [0.998, 0.985, 0.998, 0.998, 0.998, 0.998, 0.896]
+# gput=100 rep=10: [0.996, 0.993, 0.998, 0.997, 0.998, 0.998, 0.893]
+# gput=250 rep=1:  [0.994, 0.970, 0.992, 0.987, 0.992, 0.993, 0.832]
+# ...
+
+
+#for replicate in range(0,10):
+#    row = []
+#    for col1_idx in range(0,len(sel_cols)):
+#        dfl = df[df['replicate_group'] == replicate+1] \
+#               .loc[:,[ 'QScore_Q:gput',sel_cols[col1_idx]]]
+#        # gputs
+#        gputs = dfl['QScore_Q:gput'].values.tolist()
+#        # sps
+#        algs = dfl[sel_cols[col1_idx]].values.tolist()
+#        #alg_area = np.trapz(algs,gputs)
+#        #row.append(alg_area)
+#        #pdat.append([alg_area,sel_cols[col1_idx][9:]])
+#        for alg in algs:
+#           row.append(alg)
+#    data.append(row)
+## Data: rows=replicates-gput cols=methods value=sps
+
+#print(str(data))
+#exit(0)
 nDF = pd.DataFrame(data, columns=sel_cols)
 
 #pDF = pd.DataFrame(pdat, columns=['area','alg'])
@@ -63,7 +97,7 @@ nDF = pd.DataFrame(data, columns=sel_cols)
 
 print()
 print ("SPS Statistics for " + sys.argv[1])
-print ("  - Calculated on the area under each sample curve")
+print ("  - Calculated on all replicate-parameter values")
 print()
 
 # Calculate Kruskal-Wallis H-test
@@ -75,20 +109,20 @@ print()
 
 
 print ("Wilcoxon signed rank test: mean_diff [p-val]")
-print ("    " + "{:17s}".format(""),end='')
+print ("    " + "{:19}".format(""),end='')
 for col2 in range(0,len(nDF.columns)):
-    print ("{:17s}".format(nDF.columns[col2].replace("QScore_Q:","").replace("-padded","")), end='')
+    print ("{:17}".format(nDF.columns[col2].replace("QScore_Q:","").replace("-padded","")+" "), end='')
 print()
 for col1 in range(0,len(nDF.columns)):
-    print ("    " + "{:17s}".format(nDF.columns[col1].replace("QScore_Q:","").replace("-padded","")), end='')
+    print ("    " + "{:17}".format(nDF.columns[col1].replace("QScore_Q:","").replace("-padded","")), end='')
     for col2 in range(0,len(nDF.columns)):
         if ( col2 != col1 ):
             data1 = nDF[nDF.columns[col1]].tolist()
             data2 = nDF[nDF.columns[col2]].tolist()
             minW, p = wilcoxon(data1, data2)
-            print("{:8.2f}".format(mean(data1)-mean(data2)) + " " + "[{:5.3f}]".format(p) + " ",end="")
+            print("{:6.2f}".format(mean(data1)-mean(data2)) + " " + "[{:5.1e}]".format(p) + " ",end="")
         else:
-            print("{:17s}".format(""), end='')
+            print("{:17}".format(""), end='')
     print('')
 print()
 

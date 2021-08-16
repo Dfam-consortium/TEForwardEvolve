@@ -38,18 +38,31 @@ df = pd.read_csv(CSVDATA)
 sel_cols = [col for col in df.columns if 'vs_refmsacons' in col and 'gput' not in col]
 data = []
 pdat = []
-for replicate in range(0,10):
-    row = []
-    for col1_idx in range(0,len(sel_cols)):
-        dfl = df[df['replicate_group'] == replicate+1] \
-               .loc[:,[ 'vs_refmsacons:gput',sel_cols[col1_idx]]]
-        gput = dfl['vs_refmsacons:gput'].values.tolist()
-        alg = dfl[sel_cols[col1_idx]].values.tolist()
-        alg_area = np.trapz(alg,gput)
-        row.append(alg_area)
-        pdat.append([alg_area,sel_cols[col1_idx][9:]])
-    data.append(row)
-# Data: rows=replicates cols=methods value=area
+
+dft = df[df['replicate_group'] == 1]
+for gput in dft['vs_refmsacons:gput'].values.tolist():
+    for replicate in range(1,11):
+        dfl=df[(df['replicate_group'] == replicate) & (df['vs_refmsacons:gput'] == gput)]
+        row = []
+        for col1_idx in range(0,len(sel_cols)):
+            vals = dfl.loc[:,[sel_cols[col1_idx]]].values.tolist()
+            row.append(vals[0][0])
+        #print("gput=" + str(gput) + " rep="+str(replicate)+ ": ", end='' )
+        #print(row)
+        data.append(row)
+
+#for replicate in range(0,10):
+#    row = []
+#    for col1_idx in range(0,len(sel_cols)):
+#        dfl = df[df['replicate_group'] == replicate+1] \
+#               .loc[:,[ 'vs_refmsacons:gput',sel_cols[col1_idx]]]
+#        gput = dfl['vs_refmsacons:gput'].values.tolist()
+#        alg = dfl[sel_cols[col1_idx]].values.tolist()
+#        alg_area = np.trapz(alg,gput)
+#        row.append(alg_area)
+#        pdat.append([alg_area,sel_cols[col1_idx][9:]])
+#    data.append(row)
+## Data: rows=replicates cols=methods value=area
 
 nDF = pd.DataFrame(data, columns=sel_cols)
 
@@ -75,7 +88,7 @@ print()
 
 # Wilcoxon Signed Rank Test
 print ("Wilcoxon signed rank test: mean_diff [p-val]")
-print ("    " + "{:17s}".format(""),end='')
+print ("    " + "{:19s}".format(""),end='')
 for col2 in range(0,len(nDF.columns)):
     print ("{:17s}".format(nDF.columns[col2].replace("vs_refmsacons:","")), end='')
 print()
@@ -88,7 +101,7 @@ for col1 in range(0,len(nDF.columns)):
             minW, p = wilcoxon(data1, data2)
             # The area being evaluated here is being minimized ( the values
             # are the distance from the ideal alignment score ).
-            print("{:8.2f}".format(mean(data1)-mean(data2)) + " " + "[{:5.3f}]".format(p) + " ",end="")
+            print("{:6.2f}".format(mean(data1)-mean(data2)) + " " + "[{:5.1e}]".format(p) + " ",end="")
         else:
             print("{:17s}".format(""), end='')
     print('')
