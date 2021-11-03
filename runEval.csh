@@ -12,7 +12,8 @@ set NEXTFLOW_RUN_OPTS=""
 set NEXTFLOW_OPTS=""
 
 #
-set EVAL_OPTS="--refiner --muscle --mafft --clustalo --dialign --kalign --fsa"
+#set EVAL_OPTS="--refiner --muscle --mafft --clustalo --dialign --kalign --fsa --tcoffee"
+set EVAL_OPTS="--tcoffee"
 
 foreach SIM ( DNATransTree-1-Tigger1-R3S DNATransTree-2-Tigger1-R3S )
   ${NEXTFLOW} ${NEXTFLOW_OPTS} run ${NEXTFLOW_RUN_OPTS} ./evalMultipleAlign.nf \

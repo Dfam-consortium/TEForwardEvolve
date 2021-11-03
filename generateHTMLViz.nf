@@ -26,7 +26,8 @@ params.dir = "${workflow.projectDir}/sample"
 dataDir = params.dir
 
 // Viz software through RepeatModeler package [ https://www.repeatmasker.org/RepeatModeler/RepeatModeler-2.0.2a.tar.gz ]
-repeatmodelerDir = "/home/rhubley/RepeatModeler-2.0.2a"
+//repeatmodelerDir = "/home/rhubley/RepeatModeler-2.0.2a"
+repeatmodelerDir = "/home/rhubley/projects/RepeatModeler"
 
 //
 // Setup executor for different environments, particularly
@@ -63,7 +64,7 @@ log.info "Cluster             : " + params.cluster
 log.info "Queue/Partititon    : " + thisQueue
 
 //workChan = Channel.fromPath("paper-data/test-eval/rep-*/*-train-{muscle,mafft,refiner,clustalo,dialign,kalign,fsa,refmsa}.fa").view()
-workChan = Channel.fromPath("${dataDir}/rep-*/*-train-{muscle,mafft,refiner,clustalo,dialign,kalign,fsa,refmsa}.fa")
+workChan = Channel.fromPath("${dataDir}/rep-*/*-train-{muscle,mafft,refiner,clustalo,dialign,kalign,fsa,probcons,tcoffee,refmsa}.fa")
        .map { it -> tokens = (it =~ /(rep-\d+)\/((gput|frag)\d+)/)[0]; [tokens[1], tokens[2], it ] }
        .groupTuple(by:[0,1], sort: true)
 

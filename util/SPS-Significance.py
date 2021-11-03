@@ -7,9 +7,13 @@ from statistics import mean
 import sys
 from io import StringIO
 import pandas as pd
+import re
 import numpy as np
 import seaborn as sns
 import matplotlib.pyplot as plt
+
+# Control if we generate CSV or a text format
+generateCSV = 1
 
 # Read in replicate CSV with multiple tables seperated by empty lines and
 # convert to a single table suitable for pandas.  The single table joins the
@@ -95,52 +99,77 @@ nDF = pd.DataFrame(data, columns=sel_cols)
 #plt.savefig("stats.png")
 #plt.savefig("stats.pdf")
 
+mats = re.match("^.*\/(DNATransTree|LINETree)-(\d+)-(\S+)-R3S-eval\/.*",sys.argv[1])
+if ( not mats ):
+    mats = re.match("^.*\/(DNATransTree|LINETree)-(\d+)-(\S+)-R3S-gput(\d+)-mfl2-eval\/.*",sys.argv[1])
+if ( not mats ):
+    print("Could not find " + sys.argv[1])
+    exit(1)
+
 print()
-print ("SPS Statistics for " + sys.argv[1])
+if ( mats.lastindex > 3 ):
+    print ("SPS Statistics for " + mats.group(3) + " Sequence Fragmentation Analysis" )
+else:
+    print ("SPS Statistics for " + mats.group(3) + " Sequence Divergence Analsysis" )
 print ("  - Calculated on all replicate-parameter values")
+print()
+if ( mats.group(1) == "DNATransTree"):
+    print("Tree Simulation: DNA Transposon Tree #" + mats.group(2))
+else:
+    print("Tree Simulation: LINE Tree #" + mats.group(2))
+if ( mats.lastindex > 3 ):
+    if ( mats.group(4) == "100" ):
+        print("Fragmentation Simulation, Low Divergence Sequences [gput100]")
+    if ( mats.group(4) == "1500" ):
+        print("Fragmentation Simulation, Medium Divergence Sequences [gput1500]")
+    if ( mats.group(4) == "3000" ):
+        print("Fragmentation Simulation, High Divergence Sequences [gput3000]")
+print("Data File: " + sys.argv[1])
 print()
 
 # Calculate Kruskal-Wallis H-test
 kDat =  nDF.T.values.tolist()
 h,p = kruskal(*kDat)
 print("Kruskal-Wallis H-test")
-print("    H="+str(h)+", p="+str(p))
+if ( generateCSV ):
+    print(",H = ,"+str(h)+",p = ,"+str(p))
+else:
+    print("    H="+str(h)+", p="+str(p))
 print()
 
 
 print ("Wilcoxon signed rank test: mean_diff [p-val]")
-print ("    " + "{:19}".format(""),end='')
-for col2 in range(0,len(nDF.columns)):
-    print ("{:17}".format(nDF.columns[col2].replace("QScore_Q:","").replace("-padded","")+" "), end='')
-print()
-for col1 in range(0,len(nDF.columns)):
-    print ("    " + "{:17}".format(nDF.columns[col1].replace("QScore_Q:","").replace("-padded","")), end='')
+if ( not generateCSV ):
+    print ("    " + "{:19}".format(""),end='')
     for col2 in range(0,len(nDF.columns)):
-        if ( col2 != col1 ):
-            data1 = nDF[nDF.columns[col1]].tolist()
-            data2 = nDF[nDF.columns[col2]].tolist()
-            minW, p = wilcoxon(data1, data2)
-            print("{:6.2f}".format(mean(data1)-mean(data2)) + " " + "[{:5.1e}]".format(p) + " ",end="")
-        else:
-            print("{:17}".format(""), end='')
-    print('')
-print()
-
-# CSV
-#print ("Wilcoxon signed rank test:")
-#for col2 in range(1,len(nDF.columns)):
-#    print ("," + nDF.columns[col2], end='')
-#print ('')
-#for col1 in range(0,len(nDF.columns)):
-#    print (nDF.columns[col1], end='')
-#    for col2 in range(0,len(nDF.columns)):
-#        if ( col2 > col1 ):
-#            data1 = nDF[nDF.columns[col1]].tolist()
-#            data2 = nDF[nDF.columns[col2]].tolist()
-#            minW, p = wilcoxon(data1, data2)
-#            print(",%.3f"%p,end="")
-#        else:
-#            print(",", end='')
-#    print('')
-#
+        print ("{:17}".format(nDF.columns[col2].replace("QScore_Q:","").replace("-padded","")+" "), end='')
+    print()
+    for col1 in range(0,len(nDF.columns)):
+        print ("    " + "{:17}".format(nDF.columns[col1].replace("QScore_Q:","").replace("-padded","")), end='')
+        for col2 in range(0,len(nDF.columns)):
+            if ( col2 != col1 ):
+                data1 = nDF[nDF.columns[col1]].tolist()
+                data2 = nDF[nDF.columns[col2]].tolist()
+                minW, p = wilcoxon(data1, data2)
+                print("{:6.2f}".format(mean(data1)-mean(data2)) + " " + "[{:5.1e}]".format(p) + " ",end="")
+            else:
+                print("{:17}".format(""), end='')
+        print('')
+    print()
+else:
+    # CSV format
+    for col2 in range(0,len(nDF.columns)):
+        print ("," + nDF.columns[col2].replace("QScore_Q:","").replace("-padded",""), end='')
+    print ('')
+    for col1 in range(0,len(nDF.columns)):
+        print (nDF.columns[col1].replace("QScore_Q:","").replace("-padded",""), end='')
+        for col2 in range(0,len(nDF.columns)):
+            if ( col2 != col1 ):
+                data1 = nDF[nDF.columns[col1]].tolist()
+                data2 = nDF[nDF.columns[col2]].tolist()
+                minW, p = wilcoxon(data1, data2)
+                print(",{:6.2f}".format(mean(data1)-mean(data2)) + " " + "[{:5.1e}]".format(p),end="")
+            else:
+                print(",", end='')
+        print('')
 

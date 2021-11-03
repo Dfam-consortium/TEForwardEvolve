@@ -16,6 +16,8 @@ evalMultipleAlignment.nf : Evaluate multiple alignment programs on sequence sets
      --fsa                : Run FSA [optional]
      --clustalw2          : Run ClustalW2 [optional]
      --clustalo           : Run ClustalOmega [optional]
+     --probcons           : Run ProbCons [optional]
+     --tcoffee            : Run T_Coffee [optional]
      --opal               : Run Opal [optional]
      --mafft              : Run Mafft [optional]
      --cmConsEval         : Run crossmatch consensus evaluation [optional]
@@ -43,11 +45,13 @@ params.cluster = "local"
 params.muscle = false
 params.refiner = false
 params.clustalw2 = false
+params.tcoffee = false
 params.mafft = false
 params.fsa = false
 params.dialign = false
 params.kalign = false
 params.clustalo = false
+params.probcons = false
 params.opal = false
 params.cmConsEval = false
 params.nhmmerConsEval = false
@@ -61,6 +65,8 @@ runMuscle = params.muscle
 runRefiner = params.refiner
 runMafft = params.mafft
 runClustalW2 = params.clustalw2
+runTCoffee = params.tcoffee
+runProbCons = params.probcons
 runDialign = params.dialign
 runKalign = params.kalign
 runFSA = params.fsa
@@ -120,6 +126,14 @@ dialignDir = "/usr/local/dialign-tx-1.0.2"
 //    mkdir kalign-2.0.4; cd kalign-2.0.4; tar zxvf ../current.tar.gz
 //kalignDir = "/home/rhubley/kalign-2.0.4"
 kalignDir = "/usr/local/kalign2"
+
+// T_Coffee Aligner 
+// T-COFFEE Version_13.45.0.4846264 (2020-10-15 17:52:11 - Revision 5becd5d - Build 620)
+// available from http://www.tcoffee.org
+TCoffeeDir = "/usr/local/t_coffee"
+
+// ProbCons Aligner 1.12
+ProbConsDir = "/usr/local/probcons"
 
 // --unused--
 clustalW2Dir = "/usr/local/bin"
@@ -204,6 +218,12 @@ if ( runMafft ) {
 if ( runClustalW2 ) {
   log.info "ClustalW2 DIR       : " + clustalW2Dir
 }
+if ( runTCoffee ) {
+  log.info "T_Coffee DIR        : " + TCoffeeDir
+}
+if ( runProbCons ) {
+  log.info "ProbCons DIR        : " + ProbConsDir
+}
 if ( runRefiner ) {
   log.info "Refiner DIR         : " + repeatmodelerDir
 }
@@ -249,6 +269,8 @@ process processRefMSA {
   tuple file("*cons.fa"), file(testSeqFile), file(referenceMSAFile), file(referenceSeqFile) into benchmarkFilesForFSA
   tuple file("*cons.fa"), file(testSeqFile), file(referenceMSAFile), file(referenceSeqFile) into benchmarkFilesForOpal
   tuple file("*cons.fa"), file(testSeqFile), file(referenceMSAFile), file(referenceSeqFile) into benchmarkFilesForClustalO
+  tuple file("*cons.fa"), file(testSeqFile), file(referenceMSAFile), file(referenceSeqFile) into benchmarkFilesForTCoffee
+  tuple file("*cons.fa"), file(testSeqFile), file(referenceMSAFile), file(referenceSeqFile) into benchmarkFilesForProbCons
   file "*cons.fa"
   file "*cons.vs_self"
   file "*cons.vs_seed"
@@ -532,6 +554,138 @@ process runClustalW2 {
   ${hmmerDir}/hmmbuild ${simPrefix}-clustalw2.hmm normal.stk > hmmbuild.log
   """
 }
+
+process runTCoffee {
+  cpus 16
+  executor = thisExecutor
+  queue = thisQueue
+  clusterOptions = thisOptions
+  scratch = thisScratch
+
+  publishDir "${outputDir}", mode: 'copy', saveAs: { filename -> "$repDir/$filename" }
+
+  input:
+  set file(referenceMSACons), file(testSeqFile), file(referenceMSAFile), file(referenceSeqFile) from benchmarkFilesForTCoffee
+
+  when:
+  runTCoffee
+
+  output:
+  tuple file("*tcoffee.fa"), file(testSeqFile), file(referenceMSAFile), file(referenceSeqFile) into tcoffeeToAMAChan
+  tuple file("*tcoffee.fa"), file(testSeqFile), file(referenceMSAFile), file(referenceSeqFile) into tcoffeeToQScoreChan
+  tuple file("*cons.fa"), file(testSeqFile) into tcoffeeToCrossmatchChan mode flatten
+  tuple file("*cons.fa"), file(testSeqFile) into tcoffeeToNhmmerCONSChan mode flatten
+  tuple file("*.hmm"), file(testSeqFile) into tcoffeeToNhmmerHMMChan mode flatten
+  file "*-tcoffee.fa"
+  file "*-tcoffee.hmm"
+  file "*-tcoffee.cons.fa"
+  file "*-tcoffee.trimmed-cons.fa"
+  file "*-tcoffee.trimmed.hmm"
+  file "*-tcoffee.cons.vs_refmsacons"
+  file "*-tcoffee.trimmed-cons.vs_refmsacons"
+
+  script:
+  // Identify the prefix "gput100-train" from the filename for use in the script
+  simPrefix = (referenceMSAFile.name =~ /^(.*-train)/)[0][0]
+  // Identify the "rep-#" directory from the path to the referenceMSAFile for output
+  repDir = referenceMSAFile.toRealPath().getName(referenceMSAFile.toRealPath().getNameCount() - 2)
+  """
+  #### Run T_Coffee
+  ${TCoffeeDir}/bin/t_coffee -n_core 16 -thread 16 -max_n_proc 16 -seq ${referenceSeqFile} -output fasta_aln -outfile mangled.fa
+  cat mangled.fa | perl -ne '{ if ( /^>node-\\d+/ ) { s/_/:/; } print; }' > ${simPrefix}-tcoffee.fa 
+
+  #### Sanity Check MSA
+  # Since this is a full sequence MSA the validate the sequences against the reference MSA as a sanity check
+  ${projDir}/util/validateEstimatedMSA.pl ${referenceMSAFile} ${simPrefix}-tcoffee.fa
+
+  #### Generate Consensus Model
+  # Generate two consensus files from the multiple alignment.  One which includes single sequence alignment edges, and a trimmed version
+  # which trims back until there is at least one column containing two or more sequences.
+  ${repeatmodelerDir}/util/Linup -consensus -name ${referenceMSAFile.baseName} ${simPrefix}-tcoffee.fa > ${simPrefix}-tcoffee.cons.fa
+  ${projDir}/util/trimUnalignedEdges.pl ${simPrefix}-tcoffee.fa > trimmed-msa.fa
+  ${repeatmodelerDir}/util/Linup -consensus -name ${referenceMSAFile.baseName} trimmed-msa.fa > ${simPrefix}-tcoffee.trimmed-cons.fa
+
+  #### Consensus VS Consensus
+  # Compare consensi to evalute how well each can rebuild the ref msa consensus
+  #   E.g. compareConsensiNeedle.pl gput100-train-tcoffee.cons.fa L2.fa > gput100-train-tcoffee.cons.vs_refmsacons
+  #        compareConsensiNeedle.pl gput100-train-tcoffee.trimmed-cons.fa L2.fa > gput100-train-tcoffee.trimmed-cons.vs_refmsacons
+  ${projDir}/util/compareConsensiNeedle.pl ${simPrefix}-tcoffee.cons.fa ${referenceMSACons} > ${simPrefix}-tcoffee.cons.vs_refmsacons 
+  ${projDir}/util/compareConsensiNeedle.pl ${simPrefix}-tcoffee.trimmed-cons.fa ${referenceMSACons} > ${simPrefix}-tcoffee.trimmed-cons.vs_refmsacons
+
+  #### Generate HMM Model
+  ${repeatmodelerDir}/util/Linup -noTemplate -name predicted -stockholm trimmed-msa.fa > trimmed.stk
+  ${hmmerDir}/hmmbuild ${simPrefix}-tcoffee.trimmed.hmm trimmed.stk > trimmed-hmmbuild.log
+  ${repeatmodelerDir}/util/Linup -noTemplate -name predicted -stockholm ${simPrefix}-tcoffee.fa > normal.stk
+  ${hmmerDir}/hmmbuild ${simPrefix}-tcoffee.hmm normal.stk > hmmbuild.log
+  """
+}
+
+
+process runProbCons {
+  cpus 1
+  executor = thisExecutor
+  queue = thisQueue
+  clusterOptions = thisOptions
+  scratch = thisScratch
+
+  publishDir "${outputDir}", mode: 'copy', saveAs: { filename -> "$repDir/$filename" }
+
+  input:
+  set file(referenceMSACons), file(testSeqFile), file(referenceMSAFile), file(referenceSeqFile) from benchmarkFilesForProbCons
+
+  when:
+  runProbCons
+
+  output:
+  tuple file("*probcons.fa"), file(testSeqFile), file(referenceMSAFile), file(referenceSeqFile) into probconsToAMAChan
+  tuple file("*probcons.fa"), file(testSeqFile), file(referenceMSAFile), file(referenceSeqFile) into probconsToQScoreChan
+  tuple file("*cons.fa"), file(testSeqFile) into probconsToCrossmatchChan mode flatten
+  tuple file("*cons.fa"), file(testSeqFile) into probconsToNhmmerCONSChan mode flatten
+  tuple file("*.hmm"), file(testSeqFile) into probconsToNhmmerHMMChan mode flatten
+  file "*-probcons.fa"
+  file "*-probcons.hmm"
+  file "*-probcons.cons.fa"
+  file "*-probcons.trimmed-cons.fa"
+  file "*-probcons.trimmed.hmm"
+  file "*-probcons.cons.vs_refmsacons"
+  file "*-probcons.trimmed-cons.vs_refmsacons"
+
+  script:
+  // Identify the prefix "gput100-train" from the filename for use in the script
+  simPrefix = (referenceMSAFile.name =~ /^(.*-train)/)[0][0]
+  // Identify the "rep-#" directory from the path to the referenceMSAFile for output
+  repDir = referenceMSAFile.toRealPath().getName(referenceMSAFile.toRealPath().getNameCount() - 2)
+  """
+  #### Run ProbCons
+  ${ProbConsDir}/bin/probcons ${referenceSeqFile} > ${simPrefix}-probcons.fa
+  ##cat mangled.fa | perl -ne '{ if ( /^>node-\\d+/ ) { s/_/:/; } print; }' > ${simPrefix}-probcons.fa 
+
+  #### Sanity Check MSA
+  # Since this is a full sequence MSA the validate the sequences against the reference MSA as a sanity check
+  ${projDir}/util/validateEstimatedMSA.pl ${referenceMSAFile} ${simPrefix}-probcons.fa
+
+  #### Generate Consensus Model
+  # Generate two consensus files from the multiple alignment.  One which includes single sequence alignment edges, and a trimmed version
+  # which trims back until there is at least one column containing two or more sequences.
+  ${repeatmodelerDir}/util/Linup -consensus -name ${referenceMSAFile.baseName} ${simPrefix}-probcons.fa > ${simPrefix}-probcons.cons.fa
+  ${projDir}/util/trimUnalignedEdges.pl ${simPrefix}-probcons.fa > trimmed-msa.fa
+  ${repeatmodelerDir}/util/Linup -consensus -name ${referenceMSAFile.baseName} trimmed-msa.fa > ${simPrefix}-probcons.trimmed-cons.fa
+
+  #### Consensus VS Consensus
+  # Compare consensi to evalute how well each can rebuild the ref msa consensus
+  #   E.g. compareConsensiNeedle.pl gput100-train-probcons.cons.fa L2.fa > gput100-train-probcons.cons.vs_refmsacons
+  #        compareConsensiNeedle.pl gput100-train-probcons.trimmed-cons.fa L2.fa > gput100-train-probcons.trimmed-cons.vs_refmsacons
+  ${projDir}/util/compareConsensiNeedle.pl ${simPrefix}-probcons.cons.fa ${referenceMSACons} > ${simPrefix}-probcons.cons.vs_refmsacons 
+  ${projDir}/util/compareConsensiNeedle.pl ${simPrefix}-probcons.trimmed-cons.fa ${referenceMSACons} > ${simPrefix}-probcons.trimmed-cons.vs_refmsacons
+
+  #### Generate HMM Model
+  ${repeatmodelerDir}/util/Linup -noTemplate -name predicted -stockholm trimmed-msa.fa > trimmed.stk
+  ${hmmerDir}/hmmbuild ${simPrefix}-probcons.trimmed.hmm trimmed.stk > trimmed-hmmbuild.log
+  ${repeatmodelerDir}/util/Linup -noTemplate -name predicted -stockholm ${simPrefix}-probcons.fa > normal.stk
+  ${hmmerDir}/hmmbuild ${simPrefix}-probcons.hmm normal.stk > hmmbuild.log
+  """
+}
+
 
 process runClustalO {
   cpus 16
@@ -891,7 +1045,7 @@ process evalAMA {
   runDartScore
 
   input:
-  set file(predictedMSAFile), file(testSeqFile), file(referenceMSAFile), file(referenceSeqFile) from refinerToAMAChan.mix(muscleToAMAChan,mafftToAMAChan,clustalw2ToAMAChan,dialignToAMAChan,kalignToAMAChan,fsaToAMAChan, opalToAMAChan, clustaloToAMAChan)
+  set file(predictedMSAFile), file(testSeqFile), file(referenceMSAFile), file(referenceSeqFile) from refinerToAMAChan.mix(muscleToAMAChan,mafftToAMAChan,clustalw2ToAMAChan,dialignToAMAChan,kalignToAMAChan,fsaToAMAChan, opalToAMAChan, clustaloToAMAChan, tcoffeeToAMAChan, probconsToAMAChan)
 
   output:
   file "*.ama_score"
@@ -911,7 +1065,7 @@ process evalQScore {
   publishDir "${outputDir}", mode: 'copy', saveAs: { filename -> "$repDir/$filename" }
 
   input:
-  set file(predictedMSAFile), file(testSeqFile), file(referenceMSAFile), file(referenceSeqFile) from refinerToQScoreChan.mix(muscleToQScoreChan,mafftToQScoreChan,clustalw2ToQScoreChan,dialignToQScoreChan,kalignToQScoreChan,fsaToQScoreChan,opalToQScoreChan,clustaloToQScoreChan)
+  set file(predictedMSAFile), file(testSeqFile), file(referenceMSAFile), file(referenceSeqFile) from refinerToQScoreChan.mix(muscleToQScoreChan,mafftToQScoreChan,clustalw2ToQScoreChan,dialignToQScoreChan,kalignToQScoreChan,fsaToQScoreChan,opalToQScoreChan,clustaloToQScoreChan,tcoffeeToQScoreChan,probconsToQScoreChan)
 
   when:
   runQScore
@@ -941,7 +1095,7 @@ process runCrossmatch {
   runCMConsEval
 
   input:
-  set file(consFile), file(testSeqFile) from refinerToCrossmatchChan.mix(muscleToCrossmatchChan,mafftToCrossmatchChan,clustalw2ToCrossmatchChan,dialignToCrossmatchChan,kalignToCrossmatchChan,fsaToCrossmatchChan,opalToCrossmatchChan,clustaloToCrossmatchChan)
+  set file(consFile), file(testSeqFile) from refinerToCrossmatchChan.mix(muscleToCrossmatchChan,mafftToCrossmatchChan,clustalw2ToCrossmatchChan,dialignToCrossmatchChan,kalignToCrossmatchChan,fsaToCrossmatchChan,opalToCrossmatchChan,clustaloToCrossmatchChan,tcoffeeToCrossmatchChan,probconsToCrossmatchChan)
 
   output:
   file "*.cm_score"
@@ -970,7 +1124,7 @@ process runNhmmerHMM {
   runNhmmerHMMEval
 
   input:
-  set file(hmmFile), file(testSeqFile) from refinerToNhmmerHMMChan.mix(muscleToNhmmerHMMChan,mafftToNhmmerHMMChan,clustalw2ToNhmmerHMMChan,dialignToNhmmerHMMChan,kalignToNhmmerHMMChan,fsaToNhmmerHMMChan,opalToNhmmerHMMChan,clustaloToNhmmerHMMChan)
+  set file(hmmFile), file(testSeqFile) from refinerToNhmmerHMMChan.mix(muscleToNhmmerHMMChan,mafftToNhmmerHMMChan,clustalw2ToNhmmerHMMChan,dialignToNhmmerHMMChan,kalignToNhmmerHMMChan,fsaToNhmmerHMMChan,opalToNhmmerHMMChan,clustaloToNhmmerHMMChan,tcoffeeToNhmmerHMMChan,probconsToNhmmerHMMChan)
 
   output:
   file "*nhmmer"
@@ -998,7 +1152,7 @@ process runNhmmerCONS {
   runNhmmerConsEval
 
   input:
-  set file(consFile), file(testSeqFile) from refinerToNhmmerCONSChan.mix(muscleToNhmmerCONSChan,mafftToNhmmerCONSChan,clustalw2ToNhmmerCONSChan,dialignToNhmmerCONSChan,kalignToNhmmerCONSChan,fsaToNhmmerCONSChan,opalToNhmmerCONSChan,clustaloToNhmmerCONSChan)
+  set file(consFile), file(testSeqFile) from refinerToNhmmerCONSChan.mix(muscleToNhmmerCONSChan,mafftToNhmmerCONSChan,clustalw2ToNhmmerCONSChan,dialignToNhmmerCONSChan,kalignToNhmmerCONSChan,fsaToNhmmerCONSChan,opalToNhmmerCONSChan,clustaloToNhmmerCONSChan,tcoffeeToNhmmerCONSChan,probconsToNhmmerCONSChan)
 
   output:
   file "*nhmmer"

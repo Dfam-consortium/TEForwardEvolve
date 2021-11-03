@@ -39,11 +39,7 @@ print "Running: $evalDir\n";
 # gput100-train-muscle.trimmed.nhmmer_score
 # gput100-train-muscle.trimmed-cons.vs_refmsacons
 #
-#
-if ( 0 ) {
-generateMSAViz( $evalDir );
-}
- 
+
 opendir INDIR,"$evalDir" or die;
 my %data = ();
 my $xParamName;
@@ -75,9 +71,7 @@ while ( my $entry = readdir(INDIR) ){
           }
         }elsif ( $suffix =~ /\.(qscore_score)/ ) {
           my $scoresRef = readQScore("$evalDir/$entry/$repEntry");
-#print "Reading: $entry/$repEntry\n" if ( $entry eq "rep-4" ); #&& $method eq "clustalo" );
           foreach my $key ( keys %{$scoresRef} ) {
-#print "                 $key -> $scoresRef->{$key}\n" if ( $entry eq "rep-4" ); # && $method eq "clustalo" );
             $data{$replicate}->{$xparam}->{$method}->{$key} = $scoresRef->{$key};
           }
         }elsif ( $suffix =~ /\.nw_score/ ) {
@@ -126,11 +120,9 @@ foreach my $xval ( keys(%{$data{'1'}}) ) {
     }
   }
 }
-#print "rep-1/frag1200 highest score possible = " . $data{"1"}->{'1200-300'}->{'refmsa'}->{'high_score'} . " = $high\n";
 
 my $spread = abs($high - $low);
 # Normalize values
-#print "rep-1/frag1200  BEFORE fsa score =  " . $data{"1"}->{'1200-300'}->{'fsa'}->{'vs_refmsacons'} . " high = $high low = $low\n";
 foreach my $xval ( keys(%{$data{'1'}}) ) {
   foreach my $replicate ( keys(%data) ) {
     foreach my $method ( keys(%{$data{$replicate}->{$xval}}) ) {
@@ -143,16 +135,14 @@ foreach my $xval ( keys(%{$data{'1'}}) ) {
          #my $newVal = $high - $val;
          # For new Cr~Cp - Cr~Cr / Cr~Cr its:
          my $newVal = ($high-$val)/$high;
-         #print "method=$method High = $high val = $val, newVal = $newVal\n";
          $data{$replicate}->{$xval}->{$method}->{'vs_refmsacons'} = $newVal;
          if ( $newVal < 0 ) { 
-           print "Hmm...rep=$replicate, xval=$xval, rawscore = $val, newval = $newVal high = $high,  low=$low, spread = $spread\n";
+           print "ERR..rep=$replicate, xval=$xval, rawscore = $val, newval = $newVal high = $high,  low=$low, spread = $spread\n";
          }
        }
     }
   }
 }
-#print "rep-1/frag1200  fsa score =  " . $data{"1"}->{'1200-300'}->{'fsa'}->{'vs_refmsacons'} . " high = $high low = $low\n";
 
 
 ##
@@ -213,23 +203,12 @@ foreach my $xval ( keys(%{$data{'1'}}) ) {
   }
 }
 
-#print "Stats method=QScore_Q,gput=100,refiner-padded_sum = " . $stats{'100'}->{'refiner-padded'}->{'sum_QScore_Q'} . "\n";
-#print "Stats method=QScore_Q,gput=100,refiner-padded_mean = " . $stats{'100'}->{'refiner-padded'}->{'mean_QScore_Q'} . "\n";
-#print "Stats method=QScore_Q,gput=100,refiner-padded_count = " . $stats{'100'}->{'refiner-padded'}->{'count_QScore_Q'} . "\n";
-#print "Stats method=QScore_Q,gput=100,refiner-padded_sum_stdev = " . $stats{'100'}->{'refiner-padded'}->{'sum_stdev_QScore_Q'} . "\n";
-#print "Stats method=QScore_Q,gput=100,refiner-padded_stdev = " . $stats{'100'}->{'refiner-padded'}->{'stdev_QScore_Q'} . "\n";
-#print "Stats method=QScore_Q,gput=100,refiner-padded_stdev low = " . $stats{'100'}->{'refiner-padded'}->{'low_stdev_QScore_Q'} . "\n";
-#print "Stats method=QScore_Q,gput=100,refiner-padded_stdev high = " . $stats{'100'}->{'refiner-padded'}->{'high_stdev_QScore_Q'} . "\n";
-#print "Dumper: " . Dumper(\%data) . "\n";
-#print "Dumper: " . Dumper(\%stats) . "\n";
-#die;
 
 
 ##
 ## Start Generating Output
 ##
  
-
 
 my %tables = ();
 # Summary Table
@@ -241,7 +220,8 @@ foreach my $characteristic ( 'QScore_Q', 'QScore_TC', 'vs_refmsacons' ) {
   my $headerFlag = 1;
   foreach my $xval ( sort {$a <=> $b} keys(%stats) ) {
     my @row = ( $xval );
-    foreach my $method ( 'refiner-padded', 'muscle', 'refiner', 'mafft', 'dialign', 'kalign', 'fsa', 'clustalo' ) {
+    #foreach my $method ( 'refiner-padded', 'muscle', 'refiner', 'mafft', 'dialign', 'kalign', 'fsa', 'clustalo' ) {
+    foreach my $method ( 'refiner-padded', 'muscle', 'refiner', 'mafft', 'dialign', 'kalign', 'fsa', 'clustalo', 'tcoffee', 'probcons' ) {
       next if ( ($method eq "refiner") && $characteristic !~ /(hmm\.|cons\.|vs_refmsacons)/ );
       next if ( $method eq "refiner-padded" && $characteristic eq "vs_refmsacons" );
       foreach my $stat ( 'mean', 'low_stdev', 'high_stdev', 'low_stderr', 'high_stderr' ) {
@@ -288,6 +268,10 @@ foreach my $tableType ( 'summary' ) {
 }
 close OUT;
 
+#
+# Google Chart Graphing
+#
+
 my $xAxis = "Average Kimura Divergence";
 my $xTicks = "[ 0.05, 0.10, 0.15, 0.20, 0.25, 0.30, 0.35, 0.40, 0.45, 0.50]";
 if ( $xParamName eq "frag" ) {
@@ -303,11 +287,15 @@ my %methodColors = (
       'clustalw2_mean' => "#109618",
       'clustalo_mean' => "#109618",
       'dialign_mean' => "#990099",
-      'kalign_mean' => "#AAAA11",
-      #'fsa_mean' => "#DD4477",
-      #'fsa_mean' => "#a65628",
-      'fsa_mean' => "#8c510a",
-      'opal_mean' => "#A6BDDB",
+      #'kalign_mean' => "#AAAA11",
+      'kalign_mean' => "#A9A9A9",
+      'tcoffee_mean' => "#ffe119",
+      #'probcons_mean' => "#a65628",
+      #'fsa_mean' => "#8c510a",
+      'fsa_mean' => "#9a6324",
+      #'opal_mean' => "#A6BDDB",
+      #'probcons_mean' => "#A6BDDB",
+      'probcons_mean' => "#42d4f4",
       'refmsa_mean' => "#0A69A2" ,
       'refmsa_low_stdev' => "#81B7D8",
       'refmsa_high_stdev' => "#81B7D8" );
@@ -335,6 +323,7 @@ my %summaryGraphMetaData = ( 'avgKDiv' =>
                                    'hAxis_title' => $xAxis,
                                    'vAxis_title' => 'Average Developer Score',
                                    'vAxis_viewWindow_max'  => 1.0,
+                                   'vAxis_viewWindow_min' => 0.0,
                                    'hAxis_ticks' => $xTicks },
                              'QScore_TC' =>
                                  { 'title' => 'QScore Total Column Score',
@@ -434,14 +423,7 @@ my %summaryGraphMetaData = ( 'avgKDiv' =>
       push @{$dataTable},[@data];
     }
 
-    #my $graphDir = 1;
-    #$graphDir = -1 if ( $xParamName eq "frag" );
     $metaData->{'hAxis_direction'} = -1 if ( $xParamName eq "frag" );
-    #my $vMax = "";
-    #$vMax = $metaData->{'vMax'} if ( exists $metaData->{'vMax'} );
-    #my $xTicks = "";
-    #$xTicks = $metaData->{'xTicks'} if ( exists $metaData->{'xTicks'} );
-    #my ($hashID, $jStr, $hStr) = generateChart($metaData->{'title'},$metaData->{'xAxis'}, $metaData->{'yAxis'}, $dataTable, $graphDir, \@colors, $vMax, $xTicks);
     my ($hashID, $jStr, $hStr) = &generateChart($metaData, $dataTable, \@colors);
     print OUT "        $jStr\n";
     print OUT "     var chart_$hashID = new google.visualization.LineChart(document.getElementById('div_$hashID'));\n";
@@ -460,7 +442,6 @@ my %summaryGraphMetaData = ( 'avgKDiv' =>
   close OUT;
 
   # Save graphs with stderr intervals
-  #open OUT,">$evalDir/graphs-wstdev.html" or die;
   open OUT,">$evalDir/graphs-wstderr.html" or die;
   print OUT "<html>\n";
   if ( $xParamName eq "frag" ) {
@@ -537,14 +518,7 @@ my %summaryGraphMetaData = ( 'avgKDiv' =>
       push @{$dataTable},[@data];
     }
 
-    #my $graphDir = 1;
-    #$graphDir = -1 if ( $xParamName eq "frag" );
     $metaData->{'hAxis_direction'} = -1 if ( $xParamName eq "frag" );
-    #my $vMax = "";
-    #$vMax = $metaData->{'vMax'} if ( exists $metaData->{'vMax'} );
-    #my $xTicks = "";
-    #$xTicks = $metaData->{'xTicks'} if ( exists $metaData->{'xTicks'} );
-    #my ($hashID, $jStr, $hStr) = generateChart($metaData->{'title'},$metaData->{'xAxis'}, $metaData->{'yAxis'}, $dataTable, $graphDir, \@colors, $vMax, $xTicks);
     my ($hashID, $jStr, $hStr) = &generateChart($metaData, $dataTable, \@colors);
     print OUT "        $jStr\n";
     print OUT "     var chart_$hashID = new google.visualization.LineChart(document.getElementById('div_$hashID'));\n";
@@ -564,7 +538,10 @@ my %summaryGraphMetaData = ( 'avgKDiv' =>
 
 
   
+#
 # Replicate tables
+#
+
 foreach my $replicate ( sort {$a <=> $b} keys(%data) ) {
   foreach my $characteristic ( 'AMA_similarity_score', 'AMA_predictive_value',
                                'QScore_Q', 'QScore_TC', 'cons.cm_score', 'cons.nhmmer_score', 'hmm.nhmmer_score', 'vs_refmsacons' ) {
@@ -573,11 +550,10 @@ foreach my $replicate ( sort {$a <=> $b} keys(%data) ) {
     my $headerFlag = 1;
     foreach my $gput ( sort {$a <=> $b} keys(%stats) ) {
       my @row = ( $gput );
-      foreach my $method ( 'refiner-padded', 'muscle', 'refiner', 'mafft', 'dialign', 'kalign', 'fsa', 'clustalo' ) {
+      #foreach my $method ( 'refiner-padded', 'muscle', 'refiner', 'mafft', 'dialign', 'kalign', 'fsa', 'clustalo' ) {
+      foreach my $method ( 'refiner-padded', 'muscle', 'refiner', 'mafft', 'dialign', 'kalign', 'fsa', 'clustalo', 'tcoffee', 'probcons' ) {
         next if ( ($method eq "refiner") && $characteristic !~ /(hmm\.|cons\.|vs_refmsacons)/ );
         next if ( $method eq "refiner-padded" && $characteristic eq "vs_refmsacons" );
-
-#print "c=$characteristic and m=$method and g=$gput and r=$replicate finally d = " . $data{$replicate}->{$gput}->{$method}->{$characteristic} . "\n";
 
        if ( $headerFlag ) {
           push @header, $method
