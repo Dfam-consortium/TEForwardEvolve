@@ -13,9 +13,13 @@ https://www.biorxiv.org/content/10.1101/2021.08.17.456740v1
 
 ### Dependencies
 
- o Nextflow 21.04.1 or higher
- o Python 3
- o Perl 5.16 or higher
+ * Nextflow 21.04.1 or higher
+ * Python 3
+.....SciPy module
+.....Numpy module
+.....Matplotlib module
+ * Perl 5.16 or higher
+.....SVG module
      
 ### Examples
 
